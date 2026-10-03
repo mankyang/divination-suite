@@ -183,9 +183,13 @@
 
 <script type="module">
 const BUNDLE_URLS = [
+  "./scripts/vendor/taibu-core.bundle.mjs",
   "https://mankyang.github.io/divination-suite/scripts/vendor/taibu-core.bundle.mjs",
   "https://cdn.jsdelivr.net/gh/mankyang/divination-suite@main/scripts/vendor/taibu-core.bundle.mjs"
 ];
+function withTimeout(p, ms, label) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(label + "超时（超过" + Math.round(ms/1000) + "秒）")), ms))]);
+}
 const statusEl = document.getElementById("engineStatus");
 const statusText = document.getElementById("engineStatusText");
 const CATEGORIES = [
@@ -204,18 +208,25 @@ function toast(msg) {
 }
 
 async function loadEngine() {
+  const errs = [];
   for (let i = 0; i < BUNDLE_URLS.length; i++) {
+    const t0 = Date.now();
+    const tick = setInterval(() => { statusText.textContent = `引擎加载中（源 ${i+1}/${BUNDLE_URLS.length}）… 已等待 ${Math.round((Date.now()-t0)/1000)} 秒（约 3MB，请耐心等待）`; }, 1000);
     try {
-      statusText.textContent = `引擎加载中（源 ${i+1}/${BUNDLE_URLS.length}）…`;
-      const m = await import(BUNDLE_URLS[i]);
+      const m = await withTimeout(import(BUNDLE_URLS[i]), 90000, "加载");
+      clearInterval(tick);
       statusEl.classList.add("ready");
       statusText.textContent = "引擎就绪 · 15 个工具全部可用 · 计算全程本地完成";
       document.getElementById("runBtn").disabled = false;
       return m;
-    } catch (e) { console.warn("引擎源失败:", BUNDLE_URLS[i], e); }
+    } catch (e) {
+      clearInterval(tick);
+      errs.push(`源${i+1}：${e?.message || e}`);
+      console.warn("引擎源失败:", BUNDLE_URLS[i], e);
+    }
   }
   statusEl.classList.add("error");
-  statusText.textContent = "引擎加载失败：请检查网络后刷新重试";
+  statusText.innerHTML = `引擎加载失败（${esc(errs.join("；"))}）。国内网络直连 github.io 可能不稳，请检查代理或稍后重试 <button onclick="location.reload()" style="margin-left:6px;cursor:pointer;border:1px solid var(--err);background:#fff;color:var(--err);border-radius:6px;padding:2px 10px;font-size:12px">重试</button>`;
   throw new Error("engine load failed");
 }
 
@@ -247,6 +258,7 @@ function hourLabel(h) {
 }
 
 function selectTool(id, btn) {
+  if (!core) { toast("引擎尚未加载完成，请等状态条显示「引擎就绪」后再选"); return; }
   document.querySelectorAll(".tool-btn").forEach(b => b.classList.remove("on"));
   btn.classList.add("on");
   currentTool = id;
@@ -355,7 +367,8 @@ function beijingNow() {
 }
 
 async function run() {
-  if (!core || !currentTool) return;
+  if (!core) { toast("引擎尚未就绪，请等待状态条变为「引擎就绪」"); return; }
+  if (!currentTool) { toast("请先在上方选择一个排盘体系"); return; }
   const args = collectArgs();
   const resultEl = document.getElementById("result");
   const card = document.getElementById("resultCard");
@@ -363,9 +376,24 @@ async function run() {
   resultEl.classList.remove("err");
   resultEl.textContent = "计算中…";
   try {
-    const raw = await core.executeTool(currentTool, args);
-    const rendered = core.renderToolResult(currentTool, raw, args);
-    resultEl.textContent = rendered?.content?.[0]?.text ?? JSON.stringify(raw, null, 2);
+    const raw = await withTimeout(core.executeTool(currentTool, args), 90000, "排盘计算");
+    if (raw && raw.isError) {
+      const msg = (raw.content || []).map(c => c.text).filter(Boolean).join("\n") || "引擎返回错误，未携带详细信息";
+      throw new Error(msg);
+    }
+    let rendered = null;
+    try { rendered = core.renderToolResult(currentTool, raw, args); } catch (re) { console.warn("渲染失败，回退JSON展示", re); }
+    const text = rendered?.content?.[0]?.text;
+    if (typeof text === "string" && text.trim()) {
+      resultEl.textContent = text;
+    } else {
+      let json = ""; try { json = JSON.stringify(raw, null, 2); } catch {}
+      if (json && json.trim() && json !== "undefined") {
+        resultEl.textContent = "（格式化渲染异常，以下为原始数据）\n" + json;
+      } else {
+        throw new Error("引擎返回了空结果。请刷新页面重试；若持续出现请到 GitHub 仓库 Issues 反馈（附所用参数）。");
+      }
+    }
     toast("排盘完成");
   } catch (e) {
     resultEl.classList.add("err");
