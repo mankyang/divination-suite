@@ -59,9 +59,33 @@
   .btn-primary { background:var(--accent); color:#fff; }
   .btn-ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); padding:10px 18px; font-size:13.5px; }
   .btn:disabled { opacity:.5; cursor:not-allowed; }
-  /* 输出 */
-  #result { background:#fbfaf7; border:1px solid var(--border); border-radius:10px; padding:16px 18px; white-space:pre-wrap; word-break:break-word; font-size:13.5px; line-height:1.9; font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; display:none; }
-  #result.err { color:var(--err); background:#fdf3f2; border-color:#f0cfc9; }
+  /* 输出：引擎返回的是 Markdown，按结构渲染成标题/列表/表格，而不是等宽纯文本 */
+  #result { background:#fbfaf7; border:1px solid var(--border); border-radius:10px; padding:4px 18px 8px; font-size:13.5px; line-height:1.85; display:none; }
+  /* 错误提示是无格式纯文本，仍需保留换行与等宽 */
+  #result.err { color:var(--err); background:#fdf3f2; border-color:#f0cfc9; padding:16px 18px; white-space:pre-wrap; word-break:break-word; font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; }
+  #result > :first-child { margin-top:12px; }
+  #result h1 { font-size:17px; margin:18px 0 10px; padding-bottom:7px; border-bottom:2px solid var(--accent-soft); }
+  #result h2 { font-size:14.5px; margin:16px 0 7px; color:var(--accent); }
+  #result h3 { font-size:13.5px; margin:13px 0 6px; }
+  #result p { margin:7px 0; }
+  #result ul, #result ol { margin:7px 0; padding-left:22px; }
+  #result li { margin:3px 0; }
+  #result strong { color:#000; }
+  #result code { font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; background:#f1efe9; border-radius:4px; padding:1px 5px; font-size:12.5px; }
+  #result pre { overflow-x:auto; background:#f4f2ec; border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin:8px 0; font-size:12px; line-height:1.7; }
+  #result pre code { background:none; padding:0; }
+  #result hr { border:none; border-top:1px solid var(--border); margin:14px 0; }
+  #result blockquote { margin:8px 0; padding:4px 12px; border-left:3px solid var(--accent-soft); color:var(--muted); }
+  /* 表格：奇门九宫有 7 列、大六壬天地盘 12 行，窄屏必须横向滚动，不能把格子挤变形 */
+  #result .tw { overflow-x:auto; margin:9px 0 13px; border:1px solid var(--border); border-radius:8px; background:#fff; }
+  /* 窄屏表格会横向滚动，给个提示，免得以为末列被裁掉了 */
+  #result .tw-hint { font-size:11.5px; color:var(--muted); text-align:center; margin:-9px 0 13px; }
+  #result table { border-collapse:collapse; width:100%; font-size:12.5px; font-variant-numeric:tabular-nums; }
+  #result th, #result td { text-align:left; padding:6px 10px; border-bottom:1px solid var(--border); border-right:1px solid var(--border); white-space:nowrap; }
+  #result th:last-child, #result td:last-child { border-right:none; }
+  #result tr:last-child td { border-bottom:none; }
+  #result th { background:#f4f2ec; color:var(--muted); font-weight:600; }
+  #result tbody tr:nth-child(even) { background:#fdfcfa; }
   .toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:#1f2329; color:#fff; font-size:13px; padding:8px 18px; border-radius:999px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:99; }
   .toast.show { opacity:.92; }
   /* 指南 */
@@ -257,6 +281,9 @@ function toolTitle(id) {
 }
 
 let core = null, currentTool = null;
+// 最近一次结果的 Markdown 原文。渲染成 HTML 后 DOM 里已无 Markdown 标记，
+// 复制按钮要用它，才能把表格结构一起复制走。
+let lastResultText = "";
 
 function toast(msg) {
   const t = document.getElementById("toast");
@@ -398,6 +425,81 @@ function selectTool(id, btn) {
 
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
+// ---- 轻量 Markdown 渲染 ----
+// 引擎 renderToolResult 返回的是 Markdown：`#` 标题、`-` 列表、`|` 管道表格。
+// 之前直接赋给 textContent，表格就退化成一堆竖线。这里做结构化渲染。
+// 安全性：先整体 esc() 转义，再做标记替换，因此引擎文本里的 < > 永远不会变成标签。
+const MD_TABLE_SEP = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+
+function mdInline(s) {
+  return s
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>");
+}
+
+function mdToHtml(src) {
+  const lines = esc(src).replace(/\r\n?/g, "\n").split("\n");
+  const tableStart = idx => idx + 1 < lines.length
+    && lines[idx].includes("|") && lines[idx + 1].includes("-") && MD_TABLE_SEP.test(lines[idx + 1]);
+  const blockStart = idx => {
+    const l = lines[idx];
+    if (!l.trim()) return true;
+    if (/^\s*(#{1,6}\s|[-*+]\s|\d+[.)]\s|>)/.test(l)) return true;
+    if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(l)) return true;
+    return tableStart(idx);
+  };
+  const cells = row => row.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map(c => c.trim());
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line.trim()) { i++; continue; }
+
+    if (tableStart(i)) {
+      const head = cells(line);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && lines[i].trim() && lines[i].includes("|")) { rows.push(cells(lines[i])); i++; }
+      out.push('<div class="tw"><table><thead><tr>' + head.map(c => `<th>${mdInline(c)}</th>`).join("") + "</tr></thead><tbody>"
+        + rows.map(r => "<tr>" + r.map(c => `<td>${mdInline(c)}</td>`).join("") + "</tr>").join("") + "</tbody></table></div>");
+      continue;
+    }
+
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) { const lv = Math.min(h[1].length, 3); out.push(`<h${lv}>${mdInline(h[2].trim())}</h${lv}>`); i++; continue; }
+
+    if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { out.push("<hr>"); i++; continue; }
+
+    if (/^\s*[-*+]\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i])) { items.push(`<li>${mdInline(lines[i].replace(/^\s*[-*+]\s+/, ""))}</li>`); i++; }
+      out.push("<ul>" + items.join("") + "</ul>");
+      continue;
+    }
+
+    if (/^\s*\d+[.)]\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*\d+[.)]\s+/.test(lines[i])) { items.push(`<li>${mdInline(lines[i].replace(/^\s*\d+[.)]\s+/, ""))}</li>`); i++; }
+      out.push("<ol>" + items.join("") + "</ol>");
+      continue;
+    }
+
+    if (/^\s*>\s?/.test(line)) {
+      const buf = [];
+      while (i < lines.length && /^\s*>\s?/.test(lines[i])) { buf.push(mdInline(lines[i].replace(/^\s*>\s?/, ""))); i++; }
+      out.push("<blockquote>" + buf.join("<br>") + "</blockquote>");
+      continue;
+    }
+
+    // 普通段落：连续非块起始行合并
+    const buf = [];
+    while (i < lines.length && !blockStart(i)) { buf.push(mdInline(lines[i])); i++; }
+    if (!buf.length) { buf.push(mdInline(lines[i])); i++; } // 兜底，避免死循环
+    out.push("<p>" + buf.join("<br>") + "</p>");
+  }
+  return out.join("");
+}
+
 // 由 schema 生成一份最小可用的参数骨架，用作 textarea 占位示例。
 function skeleton(schema) {
   if (!schema || typeof schema !== "object") return null;
@@ -485,17 +587,29 @@ async function run() {
     try { rendered = core.renderToolResult(currentTool, raw, args); } catch (re) { console.warn("渲染失败，回退JSON展示", re); }
     const text = rendered?.content?.[0]?.text;
     if (typeof text === "string" && text.trim()) {
-      resultEl.textContent = text;
+      lastResultText = text;
+      resultEl.innerHTML = mdToHtml(text);
+      // 表格宽度超出容器时补一行滚动提示（桌面装得下就不显示）
+      resultEl.querySelectorAll(".tw").forEach(w => {
+        if (w.scrollWidth > w.clientWidth + 1) {
+          const hint = document.createElement("div");
+          hint.className = "tw-hint";
+          hint.textContent = "← 左右滑动查看完整表格 →";
+          w.after(hint);
+        }
+      });
     } else {
       let json = ""; try { json = JSON.stringify(raw, null, 2); } catch {}
       if (json && json.trim() && json !== "undefined") {
-        resultEl.textContent = "（格式化渲染异常，以下为原始数据）\n" + json;
+        lastResultText = json;
+        resultEl.innerHTML = "<p>（格式化渲染异常，以下为原始数据）</p><pre><code>" + esc(json) + "</code></pre>";
       } else {
         throw new Error("引擎返回了空结果。请刷新页面重试；若持续出现请到 GitHub 仓库 Issues 反馈（附所用参数）。");
       }
     }
     toast("排盘完成");
   } catch (e) {
+    lastResultText = "";
     resultEl.classList.add("err");
     resultEl.textContent = "出错了：" + (e?.message || e);
   }
@@ -542,7 +656,9 @@ document.getElementById("nowBtn").onclick = () => {
   toast(`已填入北京时间 ${n.year}-${String(n.month).padStart(2,"0")}-${String(n.day).padStart(2,"0")} ${String(n.hour).padStart(2,"0")}:${String(n.minute).padStart(2,"0")}`);
 };
 document.getElementById("copyBtn").onclick = async () => {
-  try { await navigator.clipboard.writeText(document.getElementById("result").textContent); toast("已复制到剪贴板"); }
+  // 复制 Markdown 原文而非 DOM 文本：表格结构（| 分隔）得以保留，可直接粘进笔记或对话
+  const md = lastResultText || document.getElementById("result").innerText;
+  try { await navigator.clipboard.writeText(md); toast("已复制到剪贴板"); }
   catch { toast("复制失败，请长按手动选择"); }
 };
 
