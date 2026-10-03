@@ -48,6 +48,22 @@ divination-suite/
 └── deep-reading/         # 八字/紫微/奇门深度解读专题资料
 ```
 
+### 仓库维护工具（不随包分发）
+
+| 文件 | 用途 |
+| --- | --- |
+| `deploy.sh` | 静态站点部署（GitHub Pages / Netlify），发布前跑第三方署名预检 |
+| `app.html` `index.html` | 在线排盘页与落地页，由 GitHub Pages 直接托管 |
+| `scripts/rebuild-zip.py` | 重建 `divination-suite.zip`，见下 |
+
+改动 zip 内的任何文件（`README.md`、`THIRD_PARTY_NOTICES.md`、`SKILL.md`、`DISCLAIMER.md`、`references/`、`interpretation/`、`deep-reading/`、`scripts/`）之后，需要重跑一次打包：
+
+```bash
+python scripts/rebuild-zip.py
+```
+
+否则分发出的包会**静默停留在旧内容**。该脚本保证条目集合与顺序不变、内容以 git blob 为准（工作区 CRLF 不会带进包里），并在写入前自检条目集合。`app.html`、`index.html`、`deploy.sh` 不在包内，改它们无需重跑。
+
 ## 发布前待办（重要）
 
 1. ~~**taibu-core 授权确认（阻断项）**~~ —— **已解决（2026-10-03）。** 结论：`taibu-core@3.5.0` 是 **MIT 许可**，上游 [hhszzzz/taibu](https://github.com/hhszzzz/taibu)。此前判为"无随包许可证声明"是因为本地 bundle 由 esbuild 打包，只保留带 `/*!` 标记的 legal comment，而该库源码未使用该标记，**许可证声明在打包环节被丢弃**——属文件头缺失，非授权缺失。已下载 npm tarball 核对：`package.json` 声明 `"license": "MIT"`，内含 `package/LICENSE`（MIT 全文 + `SPDX-License-Identifier: MIT`，`Copyright (c) 2026 hhszzzz`）。MIT 允许 use / copy / modify / merge / publish / distribute / sublicense / sell，唯一义务是**随副本保留版权与许可声明**，已在 `THIRD_PARTY_NOTICES.md` 第 1 节登记。`deploy.sh` 的阻断检查相应改为核对署名声明是否随包（见下）。
