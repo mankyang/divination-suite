@@ -20,24 +20,45 @@ DOMAIN="${2:-}"
 [ -f index.html ] || { echo "错误: 未找到 index.html"; exit 1; }
 [ -f divination-suite.zip ] || { echo "错误: 未找到 divination-suite.zip"; exit 1; }
 
-# ---- 发布阻断项检查 ----
-# taibu-core.bundle.mjs 授权未确认（见 README「发布前待办」第 1 条 / THIRD_PARTY_NOTICES.md），
-# 且该 bundle 内打包了五个第三方库。公开部署即构成再分发，必须先显式确认。
-if [ "${CONFIRM_LICENSE_OK:-}" != "1" ]; then
+# ---- 发布前检查：第三方署名声明 ----
+# taibu-core@3.5.0 为 MIT 许可（依据见 THIRD_PARTY_NOTICES.md 第 1 节 / README 待办第 1 条），
+# 允许分发；MIT 的唯一义务是「随软件副本保留版权与许可声明」。因此这里核对的是
+# 署名声明有没有跟着一起发出去，而不是等一个并不存在的授权确认。
+NOTICES=THIRD_PARTY_NOTICES.md
+ERRORS=0
+note_err() { echo "  ✗ $1"; ERRORS=$((ERRORS + 1)); }
+
+echo "检查第三方署名声明…"
+if [ ! -f "$NOTICES" ]; then
+  note_err "缺少 $NOTICES"
+else
+  # 引擎本体及其版权署名 + 内嵌五个第三方库 + MIT 正文，缺一不可
+  for token in "taibu-core" "hhszzzz" "MIT License" "iztro" "moment" \
+               "circular-natal-horoscope-js" "pinyin"; do
+    grep -q -- "$token" "$NOTICES" || note_err "$NOTICES 未声明：$token"
+  done
+fi
+# 分发的实体是 zip，声明必须也在里面。unzip 缺失时跳过（不阻断）。
+if command -v unzip >/dev/null 2>&1; then
+  # 刻意不用管道：grep -q 命中即退出会给 unzip 发 SIGPIPE，pipefail 下会误判为失败
+  zip_listing="$(unzip -l divination-suite.zip 2>/dev/null || true)"
+  case "$zip_listing" in
+    *"$NOTICES"*) ;;
+    *) note_err "divination-suite.zip 内未包含 $NOTICES" ;;
+  esac
+fi
+
+if [ "$ERRORS" -gt 0 ]; then
   cat <<'EOF'
-⚠️  发布阻断项：引擎授权未确认
 
-  scripts/vendor/taibu-core.bundle.mjs 未随附许可证声明，其内部另打包了
-  iztro / moment / moment-timezone / circular-natal-horoscope-js / pinyin
-  五个第三方库。公开部署即构成再分发行为。
+⚠️  发布中止：第三方署名不完整
 
-  请先按 README「发布前待办」第 1 条与 THIRD_PARTY_NOTICES.md 完成授权确认。
-  确认无误后，用以下方式显式放行：
-
-      CONFIRM_LICENSE_OK=1 ./deploy.sh <目标> [域名]
+  taibu-core 为 MIT 许可，允许分发，但要求随副本保留版权与许可声明。
+  请补齐上述条目后重试；依据见 README「发布前待办」第 1 条与 THIRD_PARTY_NOTICES.md。
 EOF
   exit 1
 fi
+echo "  署名声明齐全"
 
 # 自定义域名: 写 CNAME（GitHub Pages 约定文件）
 if [ -n "$DOMAIN" ]; then printf '%s\n' "$DOMAIN" > CNAME; else rm -f CNAME; fi

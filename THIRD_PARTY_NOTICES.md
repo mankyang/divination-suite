@@ -6,8 +6,19 @@
 ## 1. taibu 计算引擎（taibu-core@3.5.0）
 
 - 文件：`scripts/taibu.mjs`、`scripts/vendor/taibu-core.bundle.mjs`（11 MB，esbuild 自包含 bundle）
-- 来源：taibu-divination skill 随包分发；相关 npm 包 `taibu-mcp` 与公网端点 `https://mcp.mingai.fun/mcp` 指向第三方服务。
-- **授权状态：待确认（阻断项）。** 该 bundle 未随附许可证文件。**在取得权利人授权或确认许可证条款之前，不得公开发布。**
+- 来源：npm 包 [`taibu-core@3.5.0`](https://www.npmjs.com/package/taibu-core)，上游仓库 [hhszzzz/taibu](https://github.com/hhszzzz/taibu)（`packages/core`）。
+- 许可证：**MIT**，`Copyright (c) 2026 hhszzzz`（全文见第 2 节）。核对方式见下方说明。
+
+> **说明：为什么本地 bundle 里看不到许可证声明。**
+> 本包 vendor 的 bundle 由 esbuild 打包，头部只保留一行
+> `/* taibu-core@3.5.0 self-contained bundle */`。esbuild 默认只保留带 `/*!` 标记的
+> legal comment，而 taibu-core 源码未使用该标记，**许可证声明在打包环节被丢弃了**——
+> bundle 尾部 `Bundled license information` 里剩下的 moment-timezone / pinyin 条目
+> 属于它内嵌的第三方库，与 taibu-core 自身无关。
+> 许可证状态以 npm 包为准：`package.json` 声明 `"license": "MIT"`，tarball 内含
+> `package/LICENSE`（MIT 全文，含 `SPDX-License-Identifier: MIT`），已下载核对。
+> 「bundle 文件内没有声明」不等于「该包没有许可证」，此为文件头缺失，非授权缺失。
+
 - 该 bundle 内部打包了以下第三方库，由 bundle 尾部的 esbuild license 清单与源码标记识别：
 
 | 组件 | 用途 | 许可证 | 版权声明 |
@@ -24,7 +35,7 @@
 
 ## 2. MIT 许可证全文
 
-适用于上表中标注 MIT 的组件，以及第 4 节的神煞表来源。
+适用于第 1 节的 taibu-core、下表中标注 MIT 的组件，以及第 4 节的神煞表来源。
 
 ```
 MIT License
@@ -50,6 +61,7 @@ SOFTWARE.
 
 各组件对应的版权声明：
 
+- taibu-core — `Copyright (c) 2026 hhszzzz`
 - iztro — `Copyright (c) 2023 All Contributors`
 - moment / moment-timezone — `Copyright (c) JS Foundation and other contributors`
 - pinyin — `Copyright (c) 闲耘™`

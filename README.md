@@ -50,7 +50,8 @@ divination-suite/
 
 ## 发布前待办（重要）
 
-1. **⚠️ taibu-core 授权确认（阻断项）**：`scripts/vendor/taibu-core.bundle.mjs` 无随包许可证声明，SKILL.md 中提及的 `taibu-mcp` npm 包与 `mcp.mingai.fun` 端点指向第三方服务。**该 bundle 内部还打包了五个第三方库**（iztro、moment、moment-timezone、circular-natal-horoscope-js、pinyin），已按其原许可证登记在 `THIRD_PARTY_NOTICES.md`。发布前必须确认 taibu-core 本身的授权；无法落实时，退回"仅整合三个 Python skill"的方案 B。`deploy.sh` 已加阻断检查，未显式确认不会发布。
+1. ~~**taibu-core 授权确认（阻断项）**~~ —— **已解决（2026-10-03）。** 结论：`taibu-core@3.5.0` 是 **MIT 许可**，上游 [hhszzzz/taibu](https://github.com/hhszzzz/taibu)。此前判为"无随包许可证声明"是因为本地 bundle 由 esbuild 打包，只保留带 `/*!` 标记的 legal comment，而该库源码未使用该标记，**许可证声明在打包环节被丢弃**——属文件头缺失，非授权缺失。已下载 npm tarball 核对：`package.json` 声明 `"license": "MIT"`，内含 `package/LICENSE`（MIT 全文 + `SPDX-License-Identifier: MIT`，`Copyright (c) 2026 hhszzzz`）。MIT 允许 use / copy / modify / merge / publish / distribute / sublicense / sell，唯一义务是**随副本保留版权与许可声明**，已在 `THIRD_PARTY_NOTICES.md` 第 1 节登记。`deploy.sh` 的阻断检查相应改为核对署名声明是否随包（见下）。
+   - 另经核查：`scripts/taibu.mjs` 无任何外部 URL；bundle 内对 `mcp.mingai.fun` / `mingai` 的引用数为 0；`app.html` 仅从自有副本（相对路径、自有 Pages、本仓库的 jsDelivr 镜像）加载引擎。**当前代码不含对外服务依赖，不向外发送任何数据。** 原描述中"`taibu-mcp` 与 `mcp.mingai.fun` 指向第三方服务"指的是 taibu 项目额外提供的 MCP 服务端形态，本包未使用。
 2. **口径核对（建议）**：原 Python skill 与 taibu 引擎在神煞查法、奇门定局、紫微流派上可能存在细节差异。`deep-reading/` 资料按各自口径编写，深度解读与引擎输出冲突时，以引擎输出为准并核对资料适用范围。建议用原 Python 脚本对 3-5 个样例做一次输出比对。
 3. **平台合规**：占卜类应用在国内应用市场/小程序平台属受限类目，需按"传统文化/娱乐"定位申报，随附 `DISCLAIMER.md`，并遵守目标平台的具体审核要求。
 
@@ -58,4 +59,5 @@ divination-suite/
 
 - 已验证（Node v24.14.0，2026-10-03）：`list` 输出 15 个工具、与 `SKILL.md` 工具总表逐一对应；`call bazi`（1990-05-20 08:00 男）返回完整四柱、十神、藏干、神煞与干支关系，输出非空。
 - 已验证：本包内嵌的第三方许可证清单与 bundle 尾部 esbuild license 信息、源码标记一致（见 `THIRD_PARTY_NOTICES.md`）。
-- 未验证：引擎与原 Python 脚本的输出一致性（见待办第 2 条）；taibu-core 自身的授权状态（见待办第 1 条）。
+- 已验证（2026-10-03）：taibu-core 授权状态为 MIT，核对自 npm 包 `taibu-core@3.5.0` 的 `package.json` 与 `LICENSE`（见待办第 1 条）。
+- 未验证：引擎与原 Python 脚本的输出一致性（见待办第 2 条）。
