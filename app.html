@@ -623,6 +623,20 @@ addEventListener("resize", () => {
   _hintTimer = setTimeout(applyTableHints, 150);
 });
 
+// 四柱反推返回 0 候选时，多半不是工具出错，而是这组四柱在历法里本就不成立。
+// 只丢一句「无匹配候选」用户没法判断是自己写错了还是引擎坏了，补一句解释。
+function addNoCandidateNote(el, text) {
+  if (currentTool !== "bazi_pillars_resolve") return;
+  const m = text.match(/总数\D{0,4}(\d+)/);
+  if (!m || +m[1] !== 0) return;
+  const p = document.createElement("p");
+  p.className = "note";
+  p.textContent = "四柱不是四个干支的自由组合：月柱天干由年柱推得（甲己之年丙作首……），"
+    + "时柱天干由日柱推得。正常范围内查不到候选，通常说明这组四柱在历法中不成立，"
+    + "请回核对干支是否写错、特别是年月柱是否互相矛盾。";
+  el.appendChild(p);
+}
+
 async function run() {
   if (!core) { toast("引擎尚未就绪，请等待状态条变为「引擎就绪」"); return; }
   if (!currentTool) { toast("请先在上方选择一个排盘体系"); return; }
@@ -649,6 +663,7 @@ async function run() {
       lastResultText = text;
       resultEl.innerHTML = mdToHtml(text);
       applyTableHints();
+      addNoCandidateNote(resultEl, text);
     } else {
       let json = ""; try { json = JSON.stringify(raw, null, 2); } catch {}
       if (json && json.trim() && json !== "undefined") {
@@ -677,9 +692,19 @@ document.querySelectorAll("nav.tabs button").forEach(b => {
   };
 });
 document.getElementById("runBtn").onclick = run;
+// 引擎自带的示例有两处是坏的，换成校验过的（用引擎反推验证过能返回候选）：
+//  - 甲子/乙丑/丙寅/丁卯：甲子年的月柱只可能是丙寅…丙子/丁丑（甲己之年丙作首），
+//    乙丑不可能出现，是一组自相矛盾的四柱，必然返回 0 候选。
+//  - 戊子/庚丑/辛卯/癸巳：庚是阳干、丑是阴支，干支须同阴阳，「庚丑」不在六十甲子里，
+//    引擎直接报参数错误。
+const EXAMPLE_OVERRIDE = {
+  bazi_pillars_resolve: { yearPillar:"甲子", monthPillar:"丙寅", dayPillar:"己卯", hourPillar:"庚午" },
+};
+
 document.getElementById("exampleBtn").onclick = () => {
   if (!currentTool || !core) return;
-  const ex = core.getToolContract(currentTool).definition.inputSchema.examples?.[0];
+  const ex = EXAMPLE_OVERRIDE[currentTool]
+    || core.getToolContract(currentTool).definition.inputSchema.examples?.[0];
   if (!ex) { toast("该工具未提供示例"); return; }
   for (const [k, v] of Object.entries(ex)) {
     if (typeof v === "boolean") {
@@ -753,11 +778,23 @@ function buildAiPrompt(toolId, doc, chartMarkdown) {
   ].join("\n");
 }
 
+// writeText 在浏览器弹出粘贴授权而用户置之不理时会一直 pending（Safari / Firefox
+// 较常见），干等下去界面就卡住了，所以加个超时兜底。
+// 注意 race 不会取消底层写入：超时后写入仍可能晚一步成功，因此提示措辞留了余地。
+function copyText(text, ms = 3000) {
+  let timer;
+  const timeout = new Promise((_, rej) => {
+    timer = setTimeout(() => rej(new Error("剪贴板无响应")), ms);
+  });
+  return Promise.race([navigator.clipboard.writeText(text), timeout])
+    .finally(() => clearTimeout(timer));
+}
+
 document.getElementById("copyBtn").onclick = async () => {
   // 复制 Markdown 原文而非 DOM 文本：表格结构（| 分隔）得以保留，可直接粘进笔记或对话
   const md = lastResultText || document.getElementById("result").innerText;
-  try { await navigator.clipboard.writeText(md); toast("已复制到剪贴板"); }
-  catch { toast("复制失败，请长按手动选择"); }
+  try { await copyText(md); toast("已复制到剪贴板"); }
+  catch { toast("复制超时——若浏览器弹出粘贴授权，允许后再试一次"); }
 };
 
 document.getElementById("aiBtn").onclick = async () => {
@@ -769,11 +806,12 @@ document.getElementById("aiBtn").onclick = async () => {
     let doc = null;
     try { doc = await loadInterpretationDoc(currentTool); }
     catch (e) { console.warn("解读指引加载失败，改用通用提示词", e); }
-    await navigator.clipboard.writeText(buildAiPrompt(currentTool, doc, lastResultText));
+    await copyText(buildAiPrompt(currentTool, doc, lastResultText));
     toast(doc ? "已复制：盘面 + 解读指引，粘贴到任意 AI 对话即可"
               : "已复制盘面（解读指引没取到，AI 仍可通用解读）");
   } catch (e) {
-    toast("复制失败：" + (e?.message || e));
+    console.warn("复制失败", e);
+    toast("复制超时——若浏览器弹出粘贴授权，允许后再试一次；或改用「复制结果」");
   } finally {
     btn.disabled = false; btn.textContent = label;
   }
