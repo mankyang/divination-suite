@@ -65,6 +65,9 @@
   .checks { display:flex; flex-wrap:wrap; gap:6px 14px; padding:4px 0; }
   .checks label { font-size:13.5px; display:flex; align-items:center; gap:5px; cursor:pointer; }
   .form-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+  /* 结果卡片：说明文字与按钮挨紧一些 */
+  #resultCard .hint { margin:12px 0 0; }
+  #resultCard .form-actions { margin-top:12px; }
   .btn { border:none; border-radius:8px; padding:11px 26px; font-size:15px; font-weight:600; cursor:pointer; transition:box-shadow .15s, transform .1s, background .15s; }
   .btn-primary { background:var(--accent); color:#fff; }
   .btn-primary:hover { box-shadow:0 2px 10px rgba(140,90,43,.22); }
@@ -158,7 +161,11 @@
     <div class="card" id="resultCard" style="display:none">
       <h2>排盘结果</h2>
       <div id="result"></div>
-      <div class="form-actions"><button class="btn btn-ghost" id="copyBtn">复制结果</button></div>
+      <p class="hint">以上是盘面数据本身，不含结论。点「复制给 AI 解读」，会把盘面连同该体系的解读指引一起复制，粘贴到 Claude / ChatGPT 等任意 AI 对话即可得到解读。</p>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="aiBtn">复制给 AI 解读</button>
+        <button class="btn btn-ghost" id="copyBtn">复制结果</button>
+      </div>
     </div>
   </section>
 
@@ -171,6 +178,13 @@
         <li>不确定参数含义时，把鼠标放在字段下方说明上；或点「填入官方示例」先看一次完整调用。</li>
         <li>不确定该用哪个工具时，参考下表「我怎么选」。</li>
       </ul>
+      <h3>排盘结果看不懂怎么办</h3>
+      <p>结果是<strong>盘面数据</strong>——十神、藏干、地势、四化、八门九星这些是解读用的原料，本身不含结论，所以看不懂是正常的。两种用法：</p>
+      <ul>
+        <li><strong>想要解读</strong>：点结果下方的「复制给 AI 解读」。它会连同这个体系的<em>解读指引</em>（角色设定 + 分析框架 + 输出要求）一起复制，你粘贴到 Claude / ChatGPT / 豆包等任意 AI 对话里，就能得到针对这张盘的解读。</li>
+        <li><strong>只要数据</strong>：点「复制结果」，复制的是 Markdown 原文，表格结构保留，可以贴进笔记。</li>
+      </ul>
+      <p class="hint">复制的内容只在你自己的剪贴板里，页面不会把任何数据发到外部——「交给 AI」这一步由你自己选择交给哪个 AI。</p>
       <h3>我怎么选工具</h3>
       <table>
         <tr><th>你的问题</th><th>选这个</th><th>必填信息</th></tr>
@@ -586,6 +600,29 @@ function beijingNow() {
   return { year:+parts.year, month:+parts.month, day:+parts.day, hour:+(parts.hour === "24" ? "0" : parts.hour), minute:+parts.minute };
 }
 
+// 表格宽度超出容器时补一行滚动提示（装得下就撤掉）。视口宽度变化后要重算，
+// 否则从宽屏缩到窄屏时表格已经滚动了、提示却还没出现。
+function applyTableHints() {
+  document.querySelectorAll("#result .tw").forEach(w => {
+    const hint = w.nextElementSibling;
+    const hasHint = hint && hint.classList.contains("tw-hint");
+    const overflows = w.scrollWidth > w.clientWidth + 1;
+    if (overflows && !hasHint) {
+      const d = document.createElement("div");
+      d.className = "tw-hint";
+      d.textContent = "← 左右滑动查看完整表格 →";
+      w.after(d);
+    } else if (!overflows && hasHint) {
+      hint.remove();
+    }
+  });
+}
+let _hintTimer = 0;
+addEventListener("resize", () => {
+  clearTimeout(_hintTimer);
+  _hintTimer = setTimeout(applyTableHints, 150);
+});
+
 async function run() {
   if (!core) { toast("引擎尚未就绪，请等待状态条变为「引擎就绪」"); return; }
   if (!currentTool) { toast("请先在上方选择一个排盘体系"); return; }
@@ -611,15 +648,7 @@ async function run() {
     if (typeof text === "string" && text.trim()) {
       lastResultText = text;
       resultEl.innerHTML = mdToHtml(text);
-      // 表格宽度超出容器时补一行滚动提示（桌面装得下就不显示）
-      resultEl.querySelectorAll(".tw").forEach(w => {
-        if (w.scrollWidth > w.clientWidth + 1) {
-          const hint = document.createElement("div");
-          hint.className = "tw-hint";
-          hint.textContent = "← 左右滑动查看完整表格 →";
-          w.after(hint);
-        }
-      });
+      applyTableHints();
     } else {
       let json = ""; try { json = JSON.stringify(raw, null, 2); } catch {}
       if (json && json.trim() && json !== "undefined") {
@@ -677,11 +706,77 @@ document.getElementById("nowBtn").onclick = () => {
   }
   toast(`已填入北京时间 ${n.year}-${String(n.month).padStart(2,"0")}-${String(n.day).padStart(2,"0")} ${String(n.hour).padStart(2,"0")}:${String(n.minute).padStart(2,"0")}`);
 };
+// ---- 交给 AI 解读 ----
+// interpretation/*.md 是写给 AI 的解读指引（角色 + 分析框架 + 输出要求），
+// 按体系归属映射：紫微三个工具共用 ziwei，八字三个工具共用 bazi。
+const INTERPRETATION_DOC = {
+  astrology:"astrology",
+  bazi:"bazi", bazi_dayun:"bazi", bazi_pillars_resolve:"bazi",
+  ziwei:"ziwei", ziwei_horoscope:"ziwei", ziwei_flying_star:"ziwei",
+  liuyao:"liuyao", meihua:"meihua", tarot:"tarot", taiyi:"taiyi",
+  almanac:"almanac", qimen:"qimen", daliuren:"daliuren", xiaoliuren:"xiaoliuren",
+};
+const _docCache = new Map();
+
+async function loadInterpretationDoc(toolId) {
+  const file = INTERPRETATION_DOC[toolId];
+  if (!file) return null;
+  if (_docCache.has(file)) return _docCache.get(file);
+  const res = await fetch(new URL(`interpretation/${file}.md`, location.href));
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const text = await res.text();
+  // 若站点被 Jekyll 处理过，.md 会被渲染成 HTML，那样复制过去就是一堆标签——按失败处理
+  if (/^\s*<(!DOCTYPE|html)/i.test(text)) throw new Error("返回的是 HTML 而非 Markdown");
+  _docCache.set(file, text);
+  return text;
+}
+
+function buildAiPrompt(toolId, doc, chartMarkdown) {
+  const fallback = "你是资深的传统术数专家。请先复述盘面，再按该体系的分析框架逐项论断，"
+    + "每条断语注明依据（宫位/干支/星曜）；盘面上没有的信息不要编造，不确定就问用户。";
+  return [
+    // 用括号而非「」引号：工具标题本身已含「排盘」（奇门遁甲排盘、大六壬排盘），
+    // 写成「奇门遁甲排盘」排盘结果会重复
+    `请解读下面这份排盘结果（${toolTitle(toolId)}）。`,
+    "",
+    (doc || fallback).trim(),
+    "",
+    "补充说明：这里只提供了这一次排盘的数据，你没有调用其他排盘工具的能力；"
+      + "如果解读需要别的盘（例如大运、流年、飞星、运限），请告诉用户回到排盘页面再排一次。",
+    "",
+    "---",
+    "",
+    "## 排盘数据",
+    "",
+    chartMarkdown.trim(),
+    "",
+  ].join("\n");
+}
+
 document.getElementById("copyBtn").onclick = async () => {
   // 复制 Markdown 原文而非 DOM 文本：表格结构（| 分隔）得以保留，可直接粘进笔记或对话
   const md = lastResultText || document.getElementById("result").innerText;
   try { await navigator.clipboard.writeText(md); toast("已复制到剪贴板"); }
   catch { toast("复制失败，请长按手动选择"); }
+};
+
+document.getElementById("aiBtn").onclick = async () => {
+  if (!lastResultText) { toast("请先排盘"); return; }
+  const btn = document.getElementById("aiBtn");
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = "正在准备…";
+  try {
+    let doc = null;
+    try { doc = await loadInterpretationDoc(currentTool); }
+    catch (e) { console.warn("解读指引加载失败，改用通用提示词", e); }
+    await navigator.clipboard.writeText(buildAiPrompt(currentTool, doc, lastResultText));
+    toast(doc ? "已复制：盘面 + 解读指引，粘贴到任意 AI 对话即可"
+              : "已复制盘面（解读指引没取到，AI 仍可通用解读）");
+  } catch (e) {
+    toast("复制失败：" + (e?.message || e));
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
 };
 
 renderPicker();
