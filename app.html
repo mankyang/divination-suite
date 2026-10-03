@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>命理占术 · 在线排盘 | 八字 · 紫微 · 奇门 · 六爻 · 黄历</title>
+<meta name="description" content="15 种命理占术在线排盘：八字、紫微斗数、奇门遁甲、六爻、梅花易数、大六壬、小六壬、太乙、塔罗、西方占星、黄历。全部计算在浏览器本地完成，无需安装。">
+<meta property="og:title" content="命理占术 · 在线排盘">
+<meta property="og:description" content="15 种占术本地排盘，打开即用，无需下载安装。">
+<meta property="og:type" content="website">
+<style>
+  :root {
+    --bg:#f7f8fa; --panel:#fff; --border:#e4e7ec; --text:#1f2329; --muted:#6b7280;
+    --accent:#8c5a2b; --accent-soft:#f3ece2; --ok:#1a7f4b; --err:#b3372c;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; }
+  body { font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; background:var(--bg); color:var(--text); line-height:1.7; min-height:100vh; }
+  .wrap { max-width:960px; margin:0 auto; padding:20px 16px 60px; }
+  header.site { text-align:center; padding:18px 0 6px; }
+  header.site h1 { font-size:26px; letter-spacing:1px; }
+  header.site p { color:var(--muted); font-size:13.5px; margin-top:4px; }
+  nav.tabs { display:flex; justify-content:center; gap:8px; margin:14px 0 22px; flex-wrap:wrap; }
+  nav.tabs button { border:1px solid var(--border); background:var(--panel); color:var(--muted); padding:7px 18px; border-radius:999px; cursor:pointer; font-size:14px; }
+  nav.tabs button.on { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:20px 22px; margin-bottom:16px; }
+  h2 { font-size:17px; margin-bottom:12px; padding-left:9px; border-left:4px solid var(--accent); }
+  .hint { font-size:13px; color:var(--muted); }
+  /* 引擎状态条 */
+  #engineStatus { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); background:var(--accent-soft); border-radius:8px; padding:9px 14px; margin-bottom:16px; }
+  #engineStatus .dot { width:8px; height:8px; border-radius:50%; background:#d97706; flex:none; }
+  #engineStatus.ready .dot { background:var(--ok); }
+  #engineStatus.error .dot { background:var(--err); }
+  /* 工具选择 */
+  .cat { margin-bottom:18px; }
+  .cat h3 { font-size:14px; color:var(--accent); margin-bottom:8px; }
+  .tools { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; }
+  .tool-btn { border:1px solid var(--border); background:#fafbfc; border-radius:10px; padding:10px 12px; text-align:left; cursor:pointer; transition:border-color .15s, background .15s; }
+  .tool-btn:hover { border-color:var(--accent); background:var(--accent-soft); }
+  .tool-btn.on { border-color:var(--accent); background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(--accent); }
+  .tool-btn b { display:block; font-size:14.5px; }
+  .tool-btn span { font-size:12px; color:var(--muted); display:block; margin-top:2px; }
+  /* 表单 */
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; }
+  .field { display:flex; flex-direction:column; gap:3px; }
+  .field.full { grid-column:1 / -1; }
+  .field label { font-size:13px; color:var(--text); }
+  .field label .req { color:var(--err); margin-left:2px; }
+  .field .desc { font-size:11.5px; color:var(--muted); }
+  .field input[type=text], .field input[type=number], .field select, .field textarea {
+    border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:14px; background:#fff; color:var(--text); width:100%; font-family:inherit;
+  }
+  .field textarea { resize:vertical; min-height:60px; }
+  .checks { display:flex; flex-wrap:wrap; gap:6px 14px; padding:4px 0; }
+  .checks label { font-size:13.5px; display:flex; align-items:center; gap:5px; cursor:pointer; }
+  .form-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+  .btn { border:none; border-radius:8px; padding:11px 26px; font-size:15px; font-weight:600; cursor:pointer; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); padding:10px 18px; font-size:13.5px; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  /* 输出 */
+  #result { background:#fbfaf7; border:1px solid var(--border); border-radius:10px; padding:16px 18px; white-space:pre-wrap; word-break:break-word; font-size:13.5px; line-height:1.9; font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; display:none; }
+  #result.err { color:var(--err); background:#fdf3f2; border-color:#f0cfc9; }
+  .toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:#1f2329; color:#fff; font-size:13px; padding:8px 18px; border-radius:999px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:99; }
+  .toast.show { opacity:.92; }
+  /* 指南 */
+  .guide h3 { font-size:15px; margin:14px 0 6px; color:var(--accent); }
+  .guide p, .guide li { font-size:14px; }
+  .guide ul { padding-left:20px; }
+  .guide table { width:100%; border-collapse:collapse; font-size:13.5px; margin-top:6px; }
+  .guide th,.guide td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--border); vertical-align:top; }
+  .guide th { color:var(--muted); background:#fafbfc; }
+  .note { background:#fff8e6; border:1px solid #f0dfa8; border-radius:8px; padding:11px 15px; font-size:13px; margin-top:12px; }
+  footer { text-align:center; color:var(--muted); font-size:12.5px; margin-top:30px; }
+  footer a { color:var(--accent); }
+  @media (max-width:640px) {
+    .form-grid { grid-template-columns:1fr; }
+    .card { padding:16px 14px; }
+    header.site h1 { font-size:22px; }
+    .tools { grid-template-columns:repeat(2,1fr); }
+  }
+</style>
+<script>
+  // 引擎兼容 shim：必须在引擎模块加载前执行
+  window.process = { env: { TAIBU_TZ: "Asia/Shanghai" } };
+</script>
+<script type="importmap">
+  {"imports":{"crypto":"data:text/javascript;base64,Ly8gY3J5cHRvLXNoaW0ubWpzIOKAlCDmtY/op4jlmajnq68gTm9kZSBjcnlwdG8g5pyA5bCPIHNoaW0KLy8g6KaG55uW5byV5pOO5a6e6ZmF55So5rOVOiBjcmVhdGVIYXNoKCdzaGEyNTYnKS51cGRhdGUoc3RyKS5kaWdlc3QoKSAvIC5kaWdlc3QoJ2hleCcpCi8vIGRpZ2VzdCgpIOi/lOWbnuexuyBCdWZmZXIg5a+56LGhLCDmlK/mjIEgcmVhZFVJbnQzMkJFKG9mZnNldCkg5LiO5a2X6IqC57Si5byVCmNvbnN0IEsgPSBuZXcgVWludDMyQXJyYXkoWwogIDB4NDI4YTJmOTgsMHg3MTM3NDQ5MSwweGI1YzBmYmNmLDB4ZTliNWRiYTUsMHgzOTU2YzI1YiwweDU5ZjExMWYxLDB4OTIzZjgyYTQsMHhhYjFjNWVkNSwKICAweGQ4MDdhYTk4LDB4MTI4MzViMDEsMHgyNDMxODViZSwweDU1MGM3ZGMzLDB4NzJiZTVkNzQsMHg4MGRlYjFmZSwweDliZGMwNmE3LDB4YzE5YmYxNzQsCiAgMHhlNDliNjljMSwweGVmYmU0Nzg2LDB4MGZjMTlkYzYsMHgyNDBjYTFjYywweDJkZTkyYzZmLDB4NGE3NDg0YWEsMHg1Y2IwYTlkYywweDc2Zjk4OGRhLAogIDB4OTgzZTUxNTIsMHhhODMxYzY2ZCwweGIwMDMyN2M4LDB4YmY1OTdmYzcsMHhjNmUwMGJmMywweGQ1YTc5MTQ3LDB4MDZjYTYzNTEsMHgxNDI5Mjk2NywKICAweDI3YjcwYTg1LDB4MmUxYjIxMzgsMHg0ZDJjNmRmYywweDUzMzgwZDEzLDB4NjUwYTczNTQsMHg3NjZhMGFiYiwweDgxYzJjOTJlLDB4OTI3MjJjODUsCiAgMHhhMmJmZThhMSwweGE4MWE2NjRiLDB4YzI0YjhiNzAsMHhjNzZjNTFhMywweGQxOTJlODE5LDB4ZDY5OTA2MjQsMHhmNDBlMzU4NSwweDEwNmFhMDcwLAogIDB4MTlhNGMxMTYsMHgxZTM3NmMwOCwweDI3NDg3NzRjLDB4MzRiMGJjYjUsMHgzOTFjMGNiMywweDRlZDhhYTRhLDB4NWI5Y2NhNGYsMHg2ODJlNmZmMywKICAweDc0OGY4MmVlLDB4NzhhNTYzNmYsMHg4NGM4NzgxNCwweDhjYzcwMjA4LDB4OTBiZWZmZmEsMHhhNDUwNmNlYiwweGJlZjlhM2Y3LDB4YzY3MTc4ZjIKXSk7CmZ1bmN0aW9uIHV0ZjhCeXRlcyhzdHIpIHsKICBpZiAodHlwZW9mIHN0ciA9PT0gJ3N0cmluZycpIHJldHVybiBuZXcgVGV4dEVuY29kZXIoKS5lbmNvZGUoc3RyKTsKICByZXR1cm4gbmV3IFVpbnQ4QXJyYXkoc3RyKTsKfQpmdW5jdGlvbiBzaGEyNTZCeXRlcyhpbnB1dEJ5dGVzKSB7CiAgY29uc3QgbXNnID0gQXJyYXkuZnJvbShpbnB1dEJ5dGVzKTsKICBjb25zdCBiaXRMZW4gPSBtc2cubGVuZ3RoICogODsKICBtc2cucHVzaCgweDgwKTsKICB3aGlsZSAobXNnLmxlbmd0aCAlIDY0ICE9PSA1NikgbXNnLnB1c2goMCk7CiAgY29uc3QgaGkgPSBNYXRoLmZsb29yKGJpdExlbiAvIDB4MTAwMDAwMDAwKSwgbG8gPSBiaXRMZW4gPj4+IDA7CiAgbXNnLnB1c2goKGhpPj4+MjQpJjI1NSwoaGk+Pj4xNikmMjU1LChoaT4+PjgpJjI1NSxoaSYyNTUsKGxvPj4+MjQpJjI1NSwobG8+Pj4xNikmMjU1LChsbz4+PjgpJjI1NSxsbyYyNTUpOwogIGNvbnN0IEggPSBuZXcgVWludDMyQXJyYXkoWzB4NmEwOWU2NjcsMHhiYjY3YWU4NSwweDNjNmVmMzcyLDB4YTU0ZmY1M2EsMHg1MTBlNTI3ZiwweDliMDU2ODhjLDB4MWY4M2Q5YWIsMHg1YmUwY2QxOV0pOwogIGNvbnN0IHcgPSBuZXcgVWludDMyQXJyYXkoNjQpOwogIGNvbnN0IHJvdHIgPSAoeCxuKSA9PiAoeD4+Pm4pIHwgKHg8PCgzMi1uKSk7CiAgZm9yIChsZXQgb2ZmID0gMDsgb2ZmIDwgbXNnLmxlbmd0aDsgb2ZmICs9IDY0KSB7CiAgICBmb3IgKGxldCBpID0gMDsgaSA8IDE2OyBpKyspCiAgICAgIHdbaV0gPSAobXNnW29mZitpKjRdPDwyNCl8KG1zZ1tvZmYraSo0KzFdPDwxNil8KG1zZ1tvZmYraSo0KzJdPDw4KXxtc2dbb2ZmK2kqNCszXTsKICAgIGZvciAobGV0IGkgPSAxNjsgaSA8IDY0OyBpKyspIHsKICAgICAgY29uc3QgczAgPSByb3RyKHdbaS0xNV0sNylecm90cih3W2ktMTVdLDE4KV4od1tpLTE1XT4+PjMpOwogICAgICBjb25zdCBzMSA9IHJvdHIod1tpLTJdLDE3KV5yb3RyKHdbaS0yXSwxOSleKHdbaS0yXT4+PjEwKTsKICAgICAgd1tpXSA9ICh3W2ktMTZdK3MwK3dbaS03XStzMSk+Pj4wOwogICAgfQogICAgbGV0IFthLGIsYyxkLGUsZixnLGhdID0gSDsKICAgIGZvciAobGV0IGkgPSAwOyBpIDwgNjQ7IGkrKykgewogICAgICBjb25zdCBTMSA9IHJvdHIoZSw2KV5yb3RyKGUsMTEpXnJvdHIoZSwyNSk7CiAgICAgIGNvbnN0IGNoID0gKGUmZileKH5lJmcpOwogICAgICBjb25zdCB0MSA9IChoK1MxK2NoK0tbaV0rd1tpXSk+Pj4wOwogICAgICBjb25zdCBTMCA9IHJvdHIoYSwyKV5yb3RyKGEsMTMpXnJvdHIoYSwyMik7CiAgICAgIGNvbnN0IG1haiA9IChhJmIpXihhJmMpXihiJmMpOwogICAgICBjb25zdCB0MiA9IChTMCttYWopPj4+MDsKICAgICAgaD1nOyBnPWY7IGY9ZTsgZT0oZCt0MSk+Pj4wOyBkPWM7IGM9YjsgYj1hOyBhPSh0MSt0Mik+Pj4wOwogICAgfQogICAgSFswXT0oSFswXSthKT4+PjA7IEhbMV09KEhbMV0rYik+Pj4wOyBIWzJdPShIWzJdK2MpPj4+MDsgSFszXT0oSFszXStkKT4+PjA7CiAgICBIWzRdPShIWzRdK2UpPj4+MDsgSFs1XT0oSFs1XStmKT4+PjA7IEhbNl09KEhbNl0rZyk+Pj4wOyBIWzddPShIWzddK2gpPj4+MDsKICB9CiAgY29uc3Qgb3V0ID0gbmV3IFVpbnQ4QXJyYXkoMzIpOwogIGZvciAobGV0IGkgPSAwOyBpIDwgODsgaSsrKSB7CiAgICBvdXRbaSo0XT0oSFtpXT4+PjI0KSYyNTU7IG91dFtpKjQrMV09KEhbaV0+Pj4xNikmMjU1OyBvdXRbaSo0KzJdPShIW2ldPj4+OCkmMjU1OyBvdXRbaSo0KzNdPUhbaV0mMjU1OwogIH0KICByZXR1cm4gb3V0Owp9CmZ1bmN0aW9uIHRvSGV4KGJ5dGVzKSB7IHJldHVybiBBcnJheS5mcm9tKGJ5dGVzLCBiID0+IGIudG9TdHJpbmcoMTYpLnBhZFN0YXJ0KDIsJzAnKSkuam9pbignJyk7IH0KY2xhc3MgSGFzaCB7CiAgY29uc3RydWN0b3IoKSB7IHRoaXMuX2NodW5rcyA9IFtdOyB9CiAgdXBkYXRlKGRhdGEsIGVuY29kaW5nKSB7CiAgICB0aGlzLl9jaHVua3MucHVzaCh0eXBlb2YgZGF0YSA9PT0gJ3N0cmluZycgJiYgZW5jb2RpbmcgPT09ICdiYXNlNjQnCiAgICAgID8gVWludDhBcnJheS5mcm9tKGF0b2IoZGF0YSksIGMgPT4gYy5jaGFyQ29kZUF0KDApKQogICAgICA6IHV0ZjhCeXRlcyhkYXRhKSk7CiAgICByZXR1cm4gdGhpczsKICB9CiAgZGlnZXN0KGVuY29kaW5nKSB7CiAgICBsZXQgdG90YWwgPSAwOyB0aGlzLl9jaHVua3MuZm9yRWFjaChjID0+IHRvdGFsICs9IGMubGVuZ3RoKTsKICAgIGNvbnN0IGFsbCA9IG5ldyBVaW50OEFycmF5KHRvdGFsKTsgbGV0IG9mZiA9IDA7CiAgICB0aGlzLl9jaHVua3MuZm9yRWFjaChjID0+IHsgYWxsLnNldChjLCBvZmYpOyBvZmYgKz0gYy5sZW5ndGg7IH0pOwogICAgY29uc3Qgb3V0ID0gc2hhMjU2Qnl0ZXMoYWxsKTsKICAgIGlmIChlbmNvZGluZyA9PT0gJ2hleCcpIHJldHVybiB0b0hleChvdXQpOwogICAgaWYgKGVuY29kaW5nID09PSAnYmFzZTY0JykgcmV0dXJuIGJ0b2EoU3RyaW5nLmZyb21DaGFyQ29kZSguLi5vdXQpKTsKICAgIC8vIOm7mOiupDog6L+U5Zue57G7IEJ1ZmZlciDlr7nosaEKICAgIHJldHVybiB7CiAgICAgIC4uLm91dCwKICAgICAgcmVhZFVJbnQzMkJFKG9mZnNldCkgewogICAgICAgIHJldHVybiAoKG91dFtvZmZzZXRdPDwyNCl8KG91dFtvZmZzZXQrMV08PDE2KXwob3V0W29mZnNldCsyXTw8OCl8b3V0W29mZnNldCszXSk+Pj4wOwogICAgICB9LAogICAgICB0b1N0cmluZyhlbmMpIHsgcmV0dXJuIGVuYyA9PT0gJ2hleCcgPyB0b0hleChvdXQpIDogdG9IZXgob3V0KTsgfQogICAgfTsKICB9Cn0KZXhwb3J0IGRlZmF1bHQgewogIGNyZWF0ZUhhc2goYWxnbykgewogICAgaWYgKGFsZ28gIT09ICdzaGEyNTYnICYmIGFsZ28gIT09ICdTSEEyNTYnKSB0aHJvdyBuZXcgRXJyb3IoJ2NyeXB0by1zaGltOiDku4XmlK/mjIEgc2hhMjU2ICjlvJXmk47lrp7pmYXnlKjms5UpJyk7CiAgICByZXR1cm4gbmV3IEhhc2goKTsKICB9LAogIC8vIOmihOeVmTog6Iul5pyq5p2l54mI5pys55So5Yiw6ZqP5py65pWwCiAgcmFuZG9tQnl0ZXMobikgeyBjb25zdCBhID0gbmV3IFVpbnQ4QXJyYXkobik7IGNyeXB0by5nZXRSYW5kb21WYWx1ZXMoYSk7IHJldHVybiBhOyB9LAogIHJhbmRvbVVVSUQoKSB7IHJldHVybiBjcnlwdG8ucmFuZG9tVVVJRCgpOyB9Cn07Cg=="}}
+</script>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="site">
+    <h1>命理占术 · 在线排盘</h1>
+    <p>八字 · 紫微斗数 · 奇门遁甲 · 六爻 · 梅花 · 大六壬 · 小六壬 · 太乙 · 塔罗 · 占星 · 黄历</p>
+  </header>
+
+  <nav class="tabs">
+    <button data-view="pan" class="on">排 盘</button>
+    <button data-view="guide">使用指南</button>
+    <button data-view="about">关于与声明</button>
+  </nav>
+
+  <div id="engineStatus"><span class="dot"></span><span id="engineStatusText">引擎加载中…（首次约 3MB，加载后全部计算本地完成）</span></div>
+
+  <!-- ========== 排盘 ========== -->
+  <section id="view-pan">
+    <div class="card" id="toolPicker"></div>
+    <div class="card" id="formCard" style="display:none">
+      <h2 id="formTitle">—</h2>
+      <p class="hint" id="formDesc" style="margin-bottom:12px"></p>
+      <div class="form-grid" id="formGrid"></div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="runBtn" disabled>开始排盘</button>
+        <button class="btn btn-ghost" id="exampleBtn">填入官方示例</button>
+        <button class="btn btn-ghost" id="nowBtn" style="display:none">填入当前北京时间</button>
+      </div>
+    </div>
+    <div class="card" id="resultCard" style="display:none">
+      <h2>排盘结果</h2>
+      <div id="result"></div>
+      <div class="form-actions"><button class="btn btn-ghost" id="copyBtn">复制结果</button></div>
+    </div>
+  </section>
+
+  <!-- ========== 指南 ========== -->
+  <section id="view-guide" style="display:none">
+    <div class="card guide">
+      <h2>快速上手</h2>
+      <ul>
+        <li>在「排盘」页点选一个体系卡片，填好表单，点「开始排盘」即可。</li>
+        <li>不确定参数含义时，把鼠标放在字段下方说明上；或点「填入官方示例」先看一次完整调用。</li>
+        <li>不确定该用哪个工具时，参考下表「我怎么选」。</li>
+      </ul>
+      <h3>我怎么选工具</h3>
+      <table>
+        <tr><th>你的问题</th><th>选这个</th><th>必填信息</th></tr>
+        <tr><td>整体命局、性格结构、十神格局</td><td>八字命盘</td><td>公历/农历生日 + 时辰 + 性别</td></tr>
+        <tr><td>大运流年、起运时间</td><td>八字大运</td><td>同上</td></tr>
+        <tr><td>只记得四柱干支，忘了出生时间</td><td>四柱反推</td><td>年/月/日/时柱干支</td></tr>
+        <tr><td>十二宫、主星、四化、人生倾向</td><td>紫微斗数命盘</td><td>生日 + 时辰 + 性别</td></tr>
+        <tr><td>某年某月运势、大限流年</td><td>紫微斗数运限</td><td>生日 + 目标日期</td></tr>
+        <tr><td>星曜飞化、自化、三方四正</td><td>紫微飞星</td><td>生日 + 时辰</td></tr>
+        <tr><td>一件事能不能成、何时动、方位吉凶</td><td>奇门遁甲</td><td>时间 + 占问事项（越具体越好）</td></tr>
+        <tr><td>摇卦问事、用神旺衰</td><td>六爻排卦</td><td>占问主题 + 起卦方式</td></tr>
+        <tr><td>快速起卦、体用生克</td><td>梅花易数</td><td>时间/数字/字数起卦任选</td></tr>
+        <tr><td>课程式起课、三传四课</td><td>大六壬</td><td>占问时间 + 事项</td></tr>
+        <tr><td>急事速断</td><td>小六壬</td><td>农历月、日、时辰</td></tr>
+        <tr><td>时空大局观测</td><td>太乙九星</td><td>占问时间</td></tr>
+        <tr><td>抽牌看问题、牌阵解读</td><td>塔罗抽牌</td><td>问题 + 牌阵（可选 seed 复现）</td></tr>
+        <tr><td>本命盘、行星落座落宫</td><td>西方占星命盘</td><td>生日 + 时间 + 出生城市经度</td></tr>
+        <tr><td>今天/某日宜忌、冲煞、时辰吉凶</td><td>黄历查询</td><td>日期</td></tr>
+      </table>
+      <h3>信息给得越全，排盘越准</h3>
+      <ul>
+        <li>生辰类：农历生日请同时说明是否<b>闰月</b>；时辰不确定时宁可问长辈，不要猜。</li>
+        <li>占事类（奇门/六爻/梅花/六壬）：把<b>事情说具体</b>——占什么、什么时候、在哪、最想判断哪个结果。</li>
+        <li>本页所有「当前时间」均按<b>北京时间（Asia/Shanghai）</b>计算；身处其他时区时请在表单中修改 timezone 字段。</li>
+      </ul>
+      <div class="note">本工具输出为传统术数视角的盘面数据，仅供传统文化学习与娱乐参考，不构成任何专业建议。健康、法律、财务问题请咨询相应执业专业人士。</div>
+    </div>
+  </section>
+
+  <!-- ========== 关于 ========== -->
+  <section id="view-about" style="display:none">
+    <div class="card guide">
+      <h2>关于本页</h2>
+      <ul>
+        <li>计算引擎：<b>taibu-core 3.5.0</b>（随包分发，本地运行），覆盖 11 类 15 个排盘工具。</li>
+        <li>所有交互与计算均在<b>你的浏览器内本地完成</b>：不注册、不上传、无服务器参与，断网后加载完成的部分可继续使用（引擎已缓存）。</li>
+        <li>引擎来自开源整合项目 divination-suite（<a href="https://github.com/mankyang/divination-suite" target="_blank" rel="noopener">GitHub 仓库</a>），本页是其免安装网页版；命令行版与 AI 技能版见仓库说明。</li>
+        <li>浏览器要求：Chrome / Edge 89+、Firefox 108+、Safari 16.4+（需支持 import maps）。移动端浏览器同样适用。</li>
+        <li>首次打开需下载引擎（约 3MB，压缩传输），之后由浏览器缓存，速度大幅提升。</li>
+      </ul>
+      <div class="note">免责声明：本页所有排盘与解读内容仅供传统文化学习与娱乐参考，不构成健康、法律、财务等任何专业建议；请勿基于输出做出重大人生决策。</div>
+    </div>
+  </section>
+
+  <footer>divination-suite web · 引擎 taibu-core@3.5.0 · 数据不离开你的设备</footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+const BUNDLE_URLS = [
+  "https://mankyang.github.io/divination-suite/scripts/vendor/taibu-core.bundle.mjs",
+  "https://cdn.jsdelivr.net/gh/mankyang/divination-suite@main/scripts/vendor/taibu-core.bundle.mjs"
+];
+const statusEl = document.getElementById("engineStatus");
+const statusText = document.getElementById("engineStatusText");
+const CATEGORIES = [
+  { name: "命盘全局", tools: [["bazi","八字命盘","四柱·十神·神煞"],["ziwei","紫微斗数","十二宫·星曜·四化"],["astrology","西方占星","本命盘·流运"]] },
+  { name: "运限流年", tools: [["bazi_dayun","八字大运","起运·大运·流年"],["ziwei_horoscope","紫微运限","大限·流年·流月"],["ziwei_flying_star","紫微飞星","四化飞布·自化"],["bazi_pillars_resolve","四柱反推","干支反推生时"]] },
+  { name: "占事起卦", tools: [["qimen","奇门遁甲","择时·方位·成败"],["liuyao","六爻排卦","摇卦·用神"],["meihua","梅花易数","时间·数字起卦"],["daliuren","大六壬","四课三传"],["xiaoliuren","小六壬","急事速断"],["taiyi","太乙九星","时空大局"],["tarot","塔罗抽牌","牌阵·seed复现"]] },
+  { name: "择日查询", tools: [["almanac","黄历查询","宜忌·冲煞·时辰吉凶"]] }
+];
+const TZ_NOTE = { qimen:1, daliuren:1, taiyi:1 };
+let core = null, currentTool = null;
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+async function loadEngine() {
+  for (let i = 0; i < BUNDLE_URLS.length; i++) {
+    try {
+      statusText.textContent = `引擎加载中（源 ${i+1}/${BUNDLE_URLS.length}）…`;
+      const m = await import(BUNDLE_URLS[i]);
+      statusEl.classList.add("ready");
+      statusText.textContent = "引擎就绪 · 15 个工具全部可用 · 计算全程本地完成";
+      document.getElementById("runBtn").disabled = false;
+      return m;
+    } catch (e) { console.warn("引擎源失败:", BUNDLE_URLS[i], e); }
+  }
+  statusEl.classList.add("error");
+  statusText.textContent = "引擎加载失败：请检查网络后刷新重试";
+  throw new Error("engine load failed");
+}
+
+function renderPicker() {
+  const box = document.getElementById("toolPicker");
+  box.innerHTML = "";
+  for (const cat of CATEGORIES) {
+    const div = document.createElement("div");
+    div.className = "cat";
+    div.innerHTML = `<h3>${cat.name}</h3>`;
+    const grid = document.createElement("div");
+    grid.className = "tools";
+    for (const [id, name, desc] of cat.tools) {
+      const b = document.createElement("button");
+      b.className = "tool-btn"; b.type = "button";
+      b.innerHTML = `<b>${name}</b><span>${desc}</span>`;
+      b.onclick = () => selectTool(id, b);
+      grid.appendChild(b);
+    }
+    div.appendChild(grid);
+    box.appendChild(div);
+  }
+}
+
+const HOUR_NAMES = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+function hourLabel(h) {
+  const idx = Math.floor(((h + 1) % 24) / 2);
+  return `${String(h).padStart(2,"0")}:00 ${HOUR_NAMES[idx]}时`;
+}
+
+function selectTool(id, btn) {
+  document.querySelectorAll(".tool-btn").forEach(b => b.classList.remove("on"));
+  btn.classList.add("on");
+  currentTool = id;
+  const def = core.getToolContract(id).definition;
+  document.getElementById("formCard").style.display = "";
+  document.getElementById("formTitle").textContent = def.title || id;
+  document.getElementById("formDesc").textContent = def.description || "";
+  const grid = document.getElementById("formGrid");
+  grid.innerHTML = "";
+  const schema = def.inputSchema, props = schema.properties || {};
+  const required = new Set((schema.required || []).filter(k => k !== "detailLevel"));
+  for (const [key, p] of Object.entries(props)) {
+    if (p.const !== undefined) continue;
+    const field = document.createElement("div");
+    field.className = "field" + (["question","seed","timezone"].includes(key) || p.type === "boolean" || (p.type==="array") ? " full" : "");
+    const label = document.createElement("label");
+    label.innerHTML = `${p.description ? esc(p.description.split(/[（(]/)[0]) : key}${required.has(key) ? '<span class="req">*</span>' : ""}`;
+    field.appendChild(label);
+    let input;
+    if (p.enum) {
+      input = document.createElement("select");
+      for (const v of p.enum) {
+        const o = document.createElement("option");
+        o.value = v; o.textContent = v;
+        if (p.default !== undefined ? v === p.default : false) o.selected = true;
+        input.appendChild(o);
+      }
+      if (p.default === undefined) input.insertAdjacentHTML("afterbegin", `<option value="">（默认）</option>`);
+    } else if (p.type === "boolean") {
+      const wrap = document.createElement("div"); wrap.className = "checks";
+      wrap.innerHTML = `<label><input type="checkbox" data-key="${esc(key)}" ${p.default ? "checked" : ""}> 是</label>`;
+      field.appendChild(wrap); field.dataset.key = key; grid.appendChild(field); continue;
+    } else if (p.type === "array") {
+      if (p.items && p.items.enum) {
+        const wrap = document.createElement("div"); wrap.className = "checks";
+        for (const v of p.items.enum) {
+          wrap.insertAdjacentHTML("beforeend", `<label><input type="checkbox" data-key="${esc(key)}" value="${esc(v)}"> ${esc(v)}</label>`);
+        }
+        field.appendChild(wrap); field.dataset.key = key; field.classList.add("full");
+        grid.appendChild(field); continue;
+      }
+      input = document.createElement("input"); input.type = "text"; input.placeholder = "多个值用逗号分隔";
+    } else if (key === "question") {
+      input = document.createElement("textarea"); input.placeholder = "一句话说清要占问的事（越具体越好）";
+    } else {
+      input = document.createElement("input");
+      input.type = p.type === "number" ? "number" : "text";
+      if (p.default !== undefined && p.type !== "number") input.value = p.default;
+      if (p.default !== undefined && p.type === "number") input.value = p.default;
+    }
+    input.dataset.key = key;
+    if (key === "timezone") { input.value = "Asia/Shanghai"; }
+    if (key === "hour" || key === "birthHour") {
+      const sel = document.createElement("select");
+      for (let h = 0; h < 24; h++) {
+        const o = document.createElement("option"); o.value = h;
+        o.textContent = key === "birthHour" ? hourLabel(h) : `${String(h).padStart(2,"0")}:00`;
+        sel.appendChild(o);
+      }
+      sel.dataset.key = key; input = sel;
+    }
+    const d = document.createElement("div");
+    d.className = "desc"; d.textContent = p.description || "";
+    field.appendChild(input); field.appendChild(d);
+    grid.appendChild(field);
+  }
+  const needsNow = ["year","month","day","hour"].every(k => k in props);
+  document.getElementById("nowBtn").style.display = needsNow ? "" : "none";
+  document.getElementById("resultCard").style.display = "none";
+  document.getElementById("result").style.display = "none";
+  document.getElementById("formCard").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function collectArgs() {
+  const args = {};
+  document.querySelectorAll("#formGrid [data-key]").forEach(el => {
+    const key = el.dataset.key;
+    if (el.type === "checkbox") return; // 由下方 checks 分支处理
+    if (el.tagName === "SELECT" && el.multiple) return;
+    if (el.closest(".checks")) return;
+    let v = el.value;
+    if (v === "" || v === undefined) return;
+    const schema = core.getToolContract(currentTool).definition.inputSchema;
+    const t = schema.properties?.[key]?.type;
+    if (t === "number") v = Number(v);
+    args[key] = v;
+  });
+  document.querySelectorAll("#formGrid .checks").forEach(wrap => {
+    const boxes = wrap.querySelectorAll("input[type=checkbox]");
+    if (!boxes.length) return;
+    const key = boxes[0].dataset.key;
+    const single = boxes.length === 1 && boxes[0].value === "";
+    if (single) { if (boxes[0].checked) args[key] = true; return; }
+    const vals = [...boxes].filter(b => b.checked).map(b => b.value);
+    if (vals.length) args[key] = vals;
+  });
+  return args;
+}
+
+function beijingNow() {
+  const f = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hour12:false });
+  const parts = Object.fromEntries(f.formatToParts(new Date()).map(p => [p.type, p.value]));
+  return { year:+parts.year, month:+parts.month, day:+parts.day, hour:+(parts.hour === "24" ? "0" : parts.hour), minute:+parts.minute };
+}
+
+async function run() {
+  if (!core || !currentTool) return;
+  const args = collectArgs();
+  const resultEl = document.getElementById("result");
+  const card = document.getElementById("resultCard");
+  card.style.display = ""; resultEl.style.display = "";
+  resultEl.classList.remove("err");
+  resultEl.textContent = "计算中…";
+  try {
+    const raw = await core.executeTool(currentTool, args);
+    const rendered = core.renderToolResult(currentTool, raw, args);
+    resultEl.textContent = rendered?.content?.[0]?.text ?? JSON.stringify(raw, null, 2);
+    toast("排盘完成");
+  } catch (e) {
+    resultEl.classList.add("err");
+    resultEl.textContent = "出错了：" + (e?.message || e);
+  }
+  card.scrollIntoView({ behavior:"smooth", block:"start" });
+}
+
+// Tabs
+document.querySelectorAll("nav.tabs button").forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll("nav.tabs button").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    ["pan","guide","about"].forEach(v => document.getElementById("view-" + v).style.display = v === b.dataset.view ? "" : "none");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+});
+document.getElementById("runBtn").onclick = run;
+document.getElementById("exampleBtn").onclick = () => {
+  if (!currentTool || !core) return;
+  const ex = core.getToolContract(currentTool).definition.inputSchema.examples?.[0];
+  if (!ex) { toast("该工具未提供示例"); return; }
+  for (const [k, v] of Object.entries(ex)) {
+    if (typeof v === "boolean") {
+      const cb = document.querySelector(`#formGrid input[type=checkbox][data-key="${k}"]`);
+      if (cb) cb.checked = v;
+      continue;
+    }
+    if (Array.isArray(v)) {
+      document.querySelectorAll(`#formGrid .checks input[type=checkbox][data-key="${k}"]`).forEach(cb => cb.checked = v.includes(cb.value));
+      continue;
+    }
+    const el = document.querySelector(`#formGrid [data-key="${k}"]`);
+    if (el) el.value = String(v);
+  }
+  toast("已填入示例参数");
+};
+document.getElementById("nowBtn").onclick = () => {
+  const n = beijingNow();
+  for (const [k, v] of Object.entries(n)) {
+    const el = document.querySelector(`#formGrid [data-key="${k}"]`);
+    if (el) el.value = String(v);
+  }
+  toast(`已填入北京时间 ${n.year}-${String(n.month).padStart(2,"0")}-${String(n.day).padStart(2,"0")} ${String(n.hour).padStart(2,"0")}:${String(n.minute).padStart(2,"0")}`);
+};
+document.getElementById("copyBtn").onclick = async () => {
+  try { await navigator.clipboard.writeText(document.getElementById("result").textContent); toast("已复制到剪贴板"); }
+  catch { toast("复制失败，请长按手动选择"); }
+};
+
+renderPicker();
+loadEngine().then(m => { core = m; if (currentTool) document.getElementById("runBtn").disabled = false; }).catch(() => {});
+</script>
+</body>
+</html>
