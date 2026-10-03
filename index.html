@@ -51,7 +51,7 @@
     <div class="stat"><b>15</b><span>排盘工具</span></div>
     <div class="stat"><b>11</b><span>术数体系</span></div>
     <div class="stat"><b>0</b><span>运行时依赖（仅 Node 18+）</span></div>
-    <div class="stat"><b>2.8<span style="font-size:14px">MB</span></b><span>打包体积</span></div>
+    <div class="stat"><b>2.8<span style="font-size:14px">MB</span></b><span>打包体积（gzip 传输）</span></div>
   </div>
 
   <div class="cta">
@@ -90,8 +90,9 @@ echo '{"gender":"male","birthYear":1990,"birthMonth":5,"birthDay":20,"birthHour"
     <pre>divination-suite/
 ├── SKILL.md               # 统一入口：路由 · 引擎用法 · 解读规范
 ├── README.md              # 发布说明与待办
+├── LICENSE                # 本包原创部分：MIT
 ├── DISCLAIMER.md          # 免责声明
-├── THIRD_PARTY_NOTICES.md # 第三方组件声明
+├── THIRD_PARTY_NOTICES.md # 第三方组件声明（含引擎内嵌库）
 ├── scripts/               # taibu CLI + 计算引擎（vendor bundle）
 ├── references/            # 15 个工具参数文档
 ├── interpretation/        # 各体系基础解读指引
@@ -101,7 +102,7 @@ echo '{"gender":"male","birthYear":1990,"birthMonth":5,"birthDay":20,"birthHour"
   <div class="card">
     <h2>发布前注意事项</h2>
     <ul>
-      <li><b>taibu-core 授权（阻断项）</b>：<code>taibu-core.bundle.mjs</code> 无随包许可证声明，公开发布前须确认权利人授权。</li>
+      <li><b>taibu-core 授权（阻断项）</b>：<code>taibu-core.bundle.mjs</code> 无随包许可证声明；该 bundle 内另打包了 iztro、moment、moment-timezone、circular-natal-horoscope-js、pinyin 五个第三方库（已登记于 <code>THIRD_PARTY_NOTICES.md</code>）。发布前须确认 taibu-core 本身的权利人授权。</li>
       <li><b>口径核对</b>：深度解读资料与引擎输出可能存在细节差异，冲突时以引擎输出为准。</li>
       <li><b>平台合规</b>：占卜类应用在应用市场属受限类目，需按「传统文化/娱乐」定位申报并随附免责声明。</li>
     </ul>

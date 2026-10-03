@@ -20,6 +20,25 @@ DOMAIN="${2:-}"
 [ -f index.html ] || { echo "错误: 未找到 index.html"; exit 1; }
 [ -f divination-suite.zip ] || { echo "错误: 未找到 divination-suite.zip"; exit 1; }
 
+# ---- 发布阻断项检查 ----
+# taibu-core.bundle.mjs 授权未确认（见 README「发布前待办」第 1 条 / THIRD_PARTY_NOTICES.md），
+# 且该 bundle 内打包了五个第三方库。公开部署即构成再分发，必须先显式确认。
+if [ "${CONFIRM_LICENSE_OK:-}" != "1" ]; then
+  cat <<'EOF'
+⚠️  发布阻断项：引擎授权未确认
+
+  scripts/vendor/taibu-core.bundle.mjs 未随附许可证声明，其内部另打包了
+  iztro / moment / moment-timezone / circular-natal-horoscope-js / pinyin
+  五个第三方库。公开部署即构成再分发行为。
+
+  请先按 README「发布前待办」第 1 条与 THIRD_PARTY_NOTICES.md 完成授权确认。
+  确认无误后，用以下方式显式放行：
+
+      CONFIRM_LICENSE_OK=1 ./deploy.sh <目标> [域名]
+EOF
+  exit 1
+fi
+
 # 自定义域名: 写 CNAME（GitHub Pages 约定文件）
 if [ -n "$DOMAIN" ]; then printf '%s\n' "$DOMAIN" > CNAME; else rm -f CNAME; fi
 
@@ -37,7 +56,8 @@ case "$TARGET" in
     if ! git remote get-url origin >/dev/null 2>&1; then
       gh repo create divination-suite --public --source . --push
     else
-      git push -u origin main --force
+      # 不用 --force：历史分叉时宁可让 push 失败，由人工确认后再处理
+      git push -u origin main
     fi
 
     # 启用 Pages（已启用则忽略报错）

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>命理占术 · 在线排盘 | 八字 · 紫微 · 奇门 · 六爻 · 黄历</title>
+<link rel="icon" href="data:,">
 <meta name="description" content="15 种命理占术在线排盘：八字、紫微斗数、奇门遁甲、六爻、梅花易数、大六壬、小六壬、太乙、塔罗、西方占星、黄历。全部计算在浏览器本地完成，无需安装。">
 <meta property="og:title" content="命理占术 · 在线排盘">
 <meta property="og:description" content="15 种占术本地排盘，打开即用，无需下载安装。">
@@ -156,7 +157,7 @@
       <ul>
         <li>生辰类：农历生日请同时说明是否<b>闰月</b>；时辰不确定时宁可问长辈，不要猜。</li>
         <li>占事类（奇门/六爻/梅花/六壬）：把<b>事情说具体</b>——占什么、什么时候、在哪、最想判断哪个结果。</li>
-        <li>本页所有「当前时间」均按<b>北京时间（Asia/Shanghai）</b>计算；身处其他时区时请在表单中修改 timezone 字段。</li>
+        <li>本页所有「当前时间」均按<b>北京时间（Asia/Shanghai）</b>计算；身处其他时区时，请在表单中修改 <code>timezone</code> 字段（奇门 / 大六壬 / 太乙 三个体系提供该参数，其余体系按北京时间取数）。</li>
       </ul>
       <div class="note">本工具输出为传统术数视角的盘面数据，仅供传统文化学习与娱乐参考，不构成任何专业建议。健康、法律、财务问题请咨询相应执业专业人士。</div>
     </div>
@@ -167,11 +168,12 @@
     <div class="card guide">
       <h2>关于本页</h2>
       <ul>
-        <li>计算引擎：<b>taibu-core 3.5.0</b>（随包分发，本地运行），覆盖 11 类 15 个排盘工具。</li>
+        <li>计算引擎：<b>taibu-core 3.5.0</b>（随包分发，本地运行），覆盖 11 类 15 个排盘工具。引擎内打包的第三方库（iztro、moment 等）见仓库 <code>THIRD_PARTY_NOTICES.md</code>。</li>
         <li>所有交互与计算均在<b>你的浏览器内本地完成</b>：不注册、不上传、无服务器参与，断网后加载完成的部分可继续使用（引擎已缓存）。</li>
         <li>引擎来自开源整合项目 divination-suite（<a href="https://github.com/mankyang/divination-suite" target="_blank" rel="noopener">GitHub 仓库</a>），本页是其免安装网页版；命令行版与 AI 技能版见仓库说明。</li>
         <li>浏览器要求：Chrome / Edge 89+、Firefox 108+、Safari 16.4+（需支持 import maps）。移动端浏览器同样适用。</li>
-        <li>首次打开需下载引擎（约 3MB，压缩传输），之后由浏览器缓存，速度大幅提升。</li>
+        <li>首次打开需下载引擎（约 2.8MB，gzip 传输；磁盘上 11MB），之后由浏览器缓存，速度大幅提升。页面本身可离线打开，但引擎源全部不可达时无法计算。</li>
+        <li>引擎按「同源 → GitHub Pages → jsDelivr CDN」顺序尝试加载，任一成功即就绪。</li>
       </ul>
       <div class="note">免责声明：本页所有排盘与解读内容仅供传统文化学习与娱乐参考，不构成健康、法律、财务等任何专业建议；请勿基于输出做出重大人生决策。</div>
     </div>
@@ -187,8 +189,24 @@ const BUNDLE_URLS = [
   "https://mankyang.github.io/divination-suite/scripts/vendor/taibu-core.bundle.mjs",
   "https://cdn.jsdelivr.net/gh/mankyang/divination-suite@main/scripts/vendor/taibu-core.bundle.mjs"
 ];
+// 超时竞速：无论成败都清掉定时器，避免遗留计时器堆积。
 function withTimeout(p, ms, label) {
-  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(label + "超时（超过" + Math.round(ms/1000) + "秒）")), ms))]);
+  let h;
+  const timeout = new Promise((_, rej) => { h = setTimeout(() => rej(new Error(label + "超时（超过" + Math.round(ms/1000) + "秒）")), ms); });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(h));
+}
+// import() 一旦发起就无法取消：超时后旧源仍会继续闷头下载 11MB，多个源会叠加。
+// 因此先用可中止的 fetch 探活（只取首字节，不写缓存），确认可达再 import。
+async function probe(url, ms) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ms);
+  try {
+    const res = await fetch(url, { headers: { Range: "bytes=0-0" }, signal: ctl.signal, cache: "no-store" });
+    if (res.status >= 400) throw new Error("HTTP " + res.status);
+    try { await res.body?.cancel(); } catch (_) {}
+  } finally {
+    clearTimeout(timer);
+  }
 }
 const statusEl = document.getElementById("engineStatus");
 const statusText = document.getElementById("engineStatusText");
@@ -198,7 +216,46 @@ const CATEGORIES = [
   { name: "占事起卦", tools: [["qimen","奇门遁甲","择时·方位·成败"],["liuyao","六爻排卦","摇卦·用神"],["meihua","梅花易数","时间·数字起卦"],["daliuren","大六壬","四课三传"],["xiaoliuren","小六壬","急事速断"],["taiyi","太乙九星","时空大局"],["tarot","塔罗抽牌","牌阵·seed复现"]] },
   { name: "择日查询", tools: [["almanac","黄历查询","宜忌·冲煞·时辰吉凶"]] }
 ];
-const TZ_NOTE = { qimen:1, daliuren:1, taiyi:1 };
+// 引擎的枚举取值是英文标识符，直接显示对用户不友好。这里只翻译「显示文字」，
+// 传给引擎的值仍是原始英文（引擎按英文校验），译名依据各参数的 description。
+const CUE_LABELS = { direction:"方位", color:"颜色", weather:"天气", person:"人物", body:"身体", animal:"动物", object:"器物", shape:"形状", trigram:"卦象" };
+const ENUM_LABELS = {
+  gender: { male: "男", female: "女" },
+  calendarType: { solar: "公历", lunar: "农历" },
+  detailLevel: { default: "默认", more: "详细", full: "完整" },
+  houseSystem: { placidus: "普拉西德" },
+  method: {
+    auto: "自动", select: "指定卦", time: "时间", number: "数字",
+    count_with_time: "物数或声数", text_split: "字占", measure: "丈尺尺寸",
+    classifier_pair: "类象对", number_pair: "报数（两数）", number_triplet: "报数（三数）"
+  },
+  countCategory: { item: "物数", sound: "声数" },
+  textSplitMode: { auto: "自动", count: "按字数", sentence_pair: "按句", stroke: "按笔画" },
+  multiSentenceStrategy: { first: "首句", last: "末句" },
+  upperCueCategory: CUE_LABELS,
+  lowerCueCategory: CUE_LABELS,
+  spreadType: {
+    single: "单牌", "three-card": "三牌", love: "爱情", "celtic-cross": "凯尔特十字",
+    horseshoe: "马蹄", decision: "抉择", "mind-body-spirit": "身心灵", situation: "处境", "yes-no": "是否"
+  },
+  mode: { year: "年", month: "月", day: "日", hour: "时", minute: "分钟" },
+  panType: { zhuan: "转盘" },
+  juMethod: { chaibu: "拆补", maoshan: "茅山" },
+  zhiFuJiGong: { ji_liuyi: "寄六仪", ji_wugong: "寄戊宫" }
+};
+function enumLabel(key, value) { return ENUM_LABELS[key]?.[value] ?? value; }
+
+// getToolContract().definition 只有 name（英文 id），没有 title；中文名在
+// listToolDefinitions() 里。取不到时退回页面内置的分类表。
+function toolTitle(id) {
+  try {
+    const hit = core?.listToolDefinitions?.().find(t => t.name === id);
+    if (hit?.title) return hit.title;
+  } catch (_) {}
+  const local = CATEGORIES.flatMap(c => c.tools).find(t => t[0] === id);
+  return local ? local[1] : id;
+}
+
 let core = null, currentTool = null;
 
 function toast(msg) {
@@ -213,6 +270,7 @@ async function loadEngine() {
     const t0 = Date.now();
     const tick = setInterval(() => { statusText.textContent = `引擎加载中（源 ${i+1}/${BUNDLE_URLS.length}）… 已等待 ${Math.round((Date.now()-t0)/1000)} 秒（约 3MB，请耐心等待）`; }, 1000);
     try {
+      await probe(BUNDLE_URLS[i], 15000);
       const m = await withTimeout(import(BUNDLE_URLS[i]), 90000, "加载");
       clearInterval(tick);
       statusEl.classList.add("ready");
@@ -264,7 +322,7 @@ function selectTool(id, btn) {
   currentTool = id;
   const def = core.getToolContract(id).definition;
   document.getElementById("formCard").style.display = "";
-  document.getElementById("formTitle").textContent = def.title || id;
+  document.getElementById("formTitle").textContent = toolTitle(id);
   document.getElementById("formDesc").textContent = def.description || "";
   const grid = document.getElementById("formGrid");
   grid.innerHTML = "";
@@ -282,7 +340,7 @@ function selectTool(id, btn) {
       input = document.createElement("select");
       for (const v of p.enum) {
         const o = document.createElement("option");
-        o.value = v; o.textContent = v;
+        o.value = v; o.textContent = enumLabel(key, v);
         if (p.default !== undefined ? v === p.default : false) o.selected = true;
         input.appendChild(o);
       }
@@ -295,12 +353,18 @@ function selectTool(id, btn) {
       if (p.items && p.items.enum) {
         const wrap = document.createElement("div"); wrap.className = "checks";
         for (const v of p.items.enum) {
-          wrap.insertAdjacentHTML("beforeend", `<label><input type="checkbox" data-key="${esc(key)}" value="${esc(v)}"> ${esc(v)}</label>`);
+          wrap.insertAdjacentHTML("beforeend", `<label><input type="checkbox" data-key="${esc(key)}" value="${esc(v)}"> ${esc(enumLabel(key, v))}</label>`);
         }
         field.appendChild(wrap); field.dataset.key = key; field.classList.add("full");
         grid.appendChild(field); continue;
       }
-      input = document.createElement("input"); input.type = "text"; input.placeholder = "多个值用逗号分隔";
+      // 对象数组（如 ziwei_flying_star 的 queries）无法用逗号串表达，改用 JSON 文本域。
+      input = document.createElement("textarea");
+      input.rows = 5;
+      input.style.fontFamily = 'ui-monospace, "Cascadia Mono", Consolas, monospace';
+      input.style.fontSize = "13px";
+      input.placeholder = "JSON 数组，例如：\n" + JSON.stringify(skeleton(p.items), null, 2);
+      input.dataset.json = "1";
     } else if (key === "question") {
       input = document.createElement("textarea"); input.placeholder = "一句话说清要占问的事（越具体越好）";
     } else {
@@ -334,6 +398,22 @@ function selectTool(id, btn) {
 
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
+// 由 schema 生成一份最小可用的参数骨架，用作 textarea 占位示例。
+function skeleton(schema) {
+  if (!schema || typeof schema !== "object") return null;
+  if (schema.type === "array") return [skeleton(schema.items)];
+  if (schema.type === "object") {
+    const o = {};
+    for (const [k, v] of Object.entries(schema.properties || {})) {
+      if (!(schema.required || []).includes(k)) continue;
+      o[k] = v.enum ? v.enum[0] : skeleton(v);
+    }
+    return o;
+  }
+  if (schema.enum) return schema.enum[0];
+  return schema.type === "number" ? 0 : schema.type === "boolean" ? false : "";
+}
+
 function collectArgs() {
   const args = {};
   document.querySelectorAll("#formGrid [data-key]").forEach(el => {
@@ -346,14 +426,30 @@ function collectArgs() {
     const schema = core.getToolContract(currentTool).definition.inputSchema;
     const t = schema.properties?.[key]?.type;
     if (t === "number") v = Number(v);
+    if (t === "array") {
+      try {
+        const parsed = JSON.parse(v);
+        if (!Array.isArray(parsed)) throw new Error("顶层不是数组");
+        args[key] = parsed;
+      } catch (e) {
+        throw new Error(`参数「${key}」需要合法的 JSON 数组（${e.message}），当前内容：${v.slice(0, 80)}`);
+      }
+      return;
+    }
     args[key] = v;
   });
   document.querySelectorAll("#formGrid .checks").forEach(wrap => {
     const boxes = wrap.querySelectorAll("input[type=checkbox]");
     if (!boxes.length) return;
     const key = boxes[0].dataset.key;
-    const single = boxes.length === 1 && boxes[0].value === "";
-    if (single) { if (boxes[0].checked) args[key] = true; return; }
+    // 布尔字段必须走 schema 判定，不能靠 boxes[0].value === ""：
+    // 没有 value 属性的复选框 value 是 "on"，会被误判为多选数组，
+    // 传成 ["on"] 触发引擎校验失败（如 tarot 的 allowReversed、bazi 的 isLeapMonth）。
+    const propType = core.getToolContract(currentTool).definition.inputSchema.properties?.[key]?.type;
+    if (propType === "boolean" || boxes.length === 1 && boxes[0].value === "") {
+      if (boxes[0].checked) args[key] = true;
+      return;
+    }
     const vals = [...boxes].filter(b => b.checked).map(b => b.value);
     if (vals.length) args[key] = vals;
   });
@@ -369,10 +465,14 @@ function beijingNow() {
 async function run() {
   if (!core) { toast("引擎尚未就绪，请等待状态条变为「引擎就绪」"); return; }
   if (!currentTool) { toast("请先在上方选择一个排盘体系"); return; }
-  const args = collectArgs();
+  let args;
+  try { args = collectArgs(); }
+  catch (e) { toast(e.message); return; }
   const resultEl = document.getElementById("result");
   const card = document.getElementById("resultCard");
-  card.style.display = ""; resultEl.style.display = "";
+  // 注意：#result 的 CSS 默认是 display:none，这里必须显式置为 block。
+  // 用 "" 只会清掉内联样式、回落到 CSS 的 none，结果算出来了却看不见（空白盘面）。
+  card.style.display = ""; resultEl.style.display = "block";
   resultEl.classList.remove("err");
   resultEl.textContent = "计算中…";
   try {
@@ -423,6 +523,8 @@ document.getElementById("exampleBtn").onclick = () => {
       continue;
     }
     if (Array.isArray(v)) {
+      const jsonEl = document.querySelector(`#formGrid [data-key="${k}"][data-json]`);
+      if (jsonEl) { jsonEl.value = JSON.stringify(v, null, 2); continue; }
       document.querySelectorAll(`#formGrid .checks input[type=checkbox][data-key="${k}"]`).forEach(cb => cb.checked = v.includes(cb.value));
       continue;
     }
