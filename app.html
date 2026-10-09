@@ -122,9 +122,10 @@
   .tool-btn.on::before { border-color:rgba(166,93,82,.32); }
   /* 选中角标：右上一枚小土红印（方章带奶油边） */
   .tool-btn.on::after { content:""; position:absolute; top:6px; right:6px; width:10px; height:10px; background:var(--accent); border-radius:1px; transform:rotate(-6deg); box-shadow:inset 0 0 0 1px var(--accent), inset 0 0 0 2px rgba(251,246,236,.75), 0 1px 2px rgba(120,70,50,.3); }
-  .tool-btn b { display:block; font-size:15px; line-height:1.45; letter-spacing:1px; }
+  /* 内文撑满整宽再居中；letter-spacing 会在末字后多留 1px，左侧补等量 padding 抵消偏左 */
+  .tool-btn b { display:block; width:100%; box-sizing:border-box; text-align:center; font-size:15px; line-height:1.45; letter-spacing:1px; padding-inline-start:1px; }
   .tool-btn.on b { color:var(--accent-deep); }
-  .tool-btn span { font-size:12px; color:var(--muted); display:block; line-height:1.5; }
+  .tool-btn span { font-size:12px; color:var(--muted); display:block; width:100%; text-align:center; line-height:1.5; }
   /* 表单 */
   .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px 16px; }
   .field { display:flex; flex-direction:column; gap:4px; }
@@ -143,7 +144,7 @@
   .checks { display:flex; flex-wrap:wrap; gap:6px 14px; padding:4px 0; }
   .checks label { font-size:13.5px; display:flex; align-items:center; gap:5px; cursor:pointer; }
   .checks input[type=checkbox] { accent-color:var(--accent); }
-  .form-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+  .form-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; width:100%; margin-top:18px; }
   /* 结果卡片：说明文字与按钮挨紧一些 */
   #resultCard .hint { margin:12px 0 0; }
   #resultCard .form-actions { margin-top:12px; }
@@ -227,6 +228,7 @@
     nav.tabs button { padding:6px 14px; }
     .tools { grid-template-columns:repeat(2,minmax(0,176px)); justify-content:center; }
     .btn { padding:10px 20px; letter-spacing:1px; }
+    .form-actions { justify-content:center; }
   }
 </style>
 <script>
