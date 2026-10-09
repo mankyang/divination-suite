@@ -90,7 +90,9 @@
   /* 卡片：同纸色略提亮 + 细线框，内衬一道浅线成双框 */
   .card { position:relative; background:var(--corners), linear-gradient(180deg, var(--panel-hi), var(--panel)); border:1px solid var(--border); border-radius:4px; padding:24px 26px; margin-bottom:18px; box-shadow:var(--shadow); }
   .card::before { content:""; position:absolute; inset:4px; border:1px solid var(--border-soft); border-radius:2px; pointer-events:none; }
-  h2 { font-size:17px; font-weight:700; letter-spacing:1px; margin-bottom:12px; padding-left:10px; border-left:3px solid var(--accent); line-height:1.35; }
+  /* 卡片标题居中，下方压一道土红短线，两端缀浅线 */
+  h2 { font-size:17px; font-weight:700; letter-spacing:1px; margin-bottom:14px; text-align:center; line-height:1.35; }
+  h2::after { content:""; display:block; width:56px; height:2px; margin:8px auto 0; background:linear-gradient(90deg, transparent, var(--border) 18%, var(--accent) 34%, var(--accent) 66%, var(--border) 82%, transparent); border-radius:1px; }
   .hint { font-size:13px; color:var(--muted); }
   /* 引擎状态条：左侧状态色线不变，右端上下两枚淡角花收尾 */
   #engineStatus { display:flex; align-items:center; gap:9px; font-size:12.5px; letter-spacing:.3px; color:var(--muted); background:var(--ck-tr) right 3px top 3px / 9px 9px no-repeat, var(--ck-br) right 3px bottom 3px / 9px 9px no-repeat, rgba(252,250,246,.72); border:1px solid var(--border-soft); border-left:3px solid var(--warn); border-radius:3px; padding:9px 18px 9px 15px; margin-bottom:18px; box-shadow:0 1px 0 rgba(255,255,255,.6) inset; }
@@ -102,10 +104,13 @@
   /* 工具选择 */
   .cat { margin-bottom:22px; }
   .cat:last-child { margin-bottom:0; }
-  /* 分类标题右侧拉一条细线，把每组收束成一条带 */
-  .cat h3 { font-size:13px; letter-spacing:2px; color:var(--accent); margin-bottom:10px; display:flex; align-items:center; gap:10px; }
-  .cat h3::after { content:""; flex:1; height:1px; background:linear-gradient(90deg, var(--border), transparent); }
-  .tools { display:grid; grid-template-columns:repeat(auto-fill,minmax(152px,1fr)); gap:9px; }
+  /* 分类标题居中，两侧对称细线向外淡出 */
+  .cat h3 { font-size:13px; letter-spacing:2px; color:var(--accent); margin-bottom:10px; display:flex; align-items:center; justify-content:center; gap:10px; text-align:center; }
+  .cat h3::before, .cat h3::after { content:""; flex:0 1 64px; height:1px; }
+  .cat h3::before { background:linear-gradient(270deg, var(--border), transparent); }
+  .cat h3::after { background:linear-gradient(90deg, var(--border), transparent); }
+  /* 定宽列 + auto-fit：空轨道折叠，整组（含不满一行的分类）水平居中 */
+  .tools { display:grid; grid-template-columns:repeat(auto-fit,152px); justify-content:center; gap:9px; }
   /* 小格子内文字居中：flex 纵向居中 + min-height，同一行卡片高度与基线一致 */
   /* 背景色与角花分开写，hover/on 只换底色不丢角花 */
   .tool-btn { position:relative; border:1px solid var(--border); background:var(--corners-sm); background-color:var(--panel-hi); color:var(--text); font-family:inherit; border-radius:3px; padding:12px 10px; min-height:68px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s, box-shadow .15s, transform .15s; }
@@ -158,8 +163,9 @@
   #result.err { color:var(--err); background:#f8ece6; border-color:#e5c9bf; border-left:3px solid var(--err); box-shadow:none; padding:16px 18px; white-space:pre-wrap; word-break:break-word; font-family:var(--mono); }
   #result > :first-child { margin-top:12px; }
   #result h1 { font-size:18px; letter-spacing:1px; margin:18px 0 10px; padding-bottom:7px; border-bottom:1px solid var(--border); box-shadow:0 2px 0 -1px var(--border-soft); }
-  #result h2 { font-size:15px; margin:16px 0 7px; color:var(--accent); padding-left:8px; border-left-width:2px; }
-  #result h3 { font-size:14px; margin:13px 0 6px; }
+  #result h2 { font-size:15px; margin:16px 0 7px; color:var(--accent); }
+  #result h2::after { width:36px; height:1px; margin-top:5px; }
+  #result h3 { font-size:14px; margin:13px 0 6px; text-align:center; }
   #result p { margin:7px 0; }
   #result ul, #result ol { margin:7px 0; padding-left:22px; }
   #result li { margin:3px 0; }
@@ -182,7 +188,7 @@
   .toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:#3b2d27; color:#f6efe4; font-size:13px; letter-spacing:.5px; padding:8px 18px; border-radius:3px; border-left:3px solid var(--accent-hi); opacity:0; transition:opacity .3s; pointer-events:none; z-index:99; max-width:calc(100vw - 32px); }
   .toast.show { opacity:.94; }
   /* 指南 */
-  .guide h3 { font-size:15px; letter-spacing:1px; margin:16px 0 6px; color:var(--accent); }
+  .guide h3 { font-size:15px; letter-spacing:1px; margin:16px 0 6px; color:var(--accent); text-align:center; }
   .guide p, .guide li { font-size:14.5px; }
   .guide ul { padding-left:20px; }
   .guide li::marker { color:var(--accent); }
@@ -219,7 +225,7 @@
     header.site p { font-size:12.5px; letter-spacing:.5px; }
     .seal { width:36px; height:36px; font-size:20px; }
     nav.tabs button { padding:6px 14px; }
-    .tools { grid-template-columns:repeat(2,1fr); }
+    .tools { grid-template-columns:repeat(2,minmax(0,176px)); justify-content:center; }
     .btn { padding:10px 20px; letter-spacing:1px; }
   }
 </style>
