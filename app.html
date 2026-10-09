@@ -110,10 +110,10 @@
   .cat h3::before { background:linear-gradient(270deg, var(--border), transparent); }
   .cat h3::after { background:linear-gradient(90deg, var(--border), transparent); }
   /* 定宽列 + auto-fit：空轨道折叠，整组（含不满一行的分类）水平居中 */
-  .tools { display:grid; grid-template-columns:repeat(auto-fit,152px); justify-content:center; gap:9px; }
+  .tools { display:flex; flex-wrap:wrap; justify-content:center; gap:9px; }
   /* 小格子内文字居中：flex 纵向居中 + min-height，同一行卡片高度与基线一致 */
   /* 背景色与角花分开写，hover/on 只换底色不丢角花 */
-  .tool-btn { position:relative; border:1px solid var(--border); background:var(--corners-sm); background-color:var(--panel-hi); color:var(--text); font-family:inherit; border-radius:3px; padding:12px 10px; min-height:68px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s, box-shadow .15s, transform .15s; }
+  .tool-btn { position:relative; width:152px; flex:0 0 152px; box-sizing:border-box; border:1px solid var(--border); background:var(--corners-sm); background-color:var(--panel-hi); color:var(--text); font-family:inherit; border-radius:3px; padding:12px 10px; min-height:68px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s, box-shadow .15s, transform .15s; }
   /* 内衬细线成双框 */
   .tool-btn::before { content:""; position:absolute; inset:3px; border:1px solid var(--border-soft); border-radius:2px; pointer-events:none; transition:border-color .15s; }
   .tool-btn:hover { border-color:var(--accent); background-color:#f9f0ea; box-shadow:0 6px 14px -8px rgba(120,70,50,.3); transform:translateY(-1px); }
@@ -226,7 +226,7 @@
     header.site p { font-size:12.5px; letter-spacing:.5px; }
     .seal { width:36px; height:36px; font-size:20px; }
     nav.tabs button { padding:6px 14px; }
-    .tools { grid-template-columns:repeat(2,minmax(0,176px)); justify-content:center; }
+    .tool-btn { width:min(176px, calc(50% - 5px)); flex:0 0 min(176px, calc(50% - 5px)); }
     .btn { padding:10px 20px; letter-spacing:1px; }
     .form-actions { justify-content:center; }
   }
